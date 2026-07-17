@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
-    PORT: int = 8080
+    PORT: int = 8000
     DEFAULT_BUSINESS_ID: str = "graduation-marketplace"
     
     # 数据库配置

@@ -335,12 +335,12 @@ export const useChatStore = defineStore('chat', () => {
 
   async function loadSmartQuestions(messageId: string) {
     try {
-      const response = await apiClient.get<{ questions: any[]; mode: string }>('/chat/smart-questions?mode=fast')
+      const response = await apiClient.get<{ questions: any[]; mode: string }>('/chat/smart-questions?mode=smart')
       const messageIndex = messages.value.findIndex(message => message.id === messageId)
       if (messageIndex !== -1) {
         messages.value[messageIndex].metadata = {
           ...messages.value[messageIndex].metadata,
-          quick_actions: response.questions
+          quick_actions: response.questions.slice(0, 3)
         }
       }
     } catch (error) {
@@ -381,7 +381,7 @@ export const useChatStore = defineStore('chat', () => {
             data: { question: '使用遇到问题怎么办？' },
             icon: 'help'
           }
-        ]
+        ].slice(0, 3)
       }
     }
   }

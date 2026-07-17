@@ -1,22 +1,23 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul
 echo ========================================
-echo   AI客服系统 - 一键启动
+echo   AI瀹㈡湇绯荤粺 - 涓€閿惎鍔?
 echo ========================================
 echo.
 
-echo [1/2] 启动后端服务...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath 'e:\Project\AICustomerService\AICustomService\Scripts\python.exe' -ArgumentList 'e:\Project\AICustomerService\backend\main.py' -WorkingDirectory 'e:\Project\AICustomerService\backend'"
+echo [1/2] 鍚姩鍚庣鏈嶅姟...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath 'e:\Project\AICustomerService\backend\venv\Scripts\python.exe' -ArgumentList 'e:\Project\AICustomerService\backend\main.py' -WorkingDirectory 'e:\Project\AICustomerService\backend'"
 
 timeout /t 3 /nobreak >nul
 
-echo [2/2] 启动前端服务...
+echo [2/2] 鍚姩鍓嶇鏈嶅姟...
 powershell -NoProfile -ExecutionPolicy Bypass -Command "Start-Process -FilePath 'cmd.exe' -ArgumentList '/c','npm run dev' -WorkingDirectory 'e:\Project\AICustomerService\frontend'"
 
 echo.
 echo ========================================
-echo   启动完成！
-echo   后端: http://localhost:8080
-echo   前端: http://localhost:5173
-echo   API文档: http://localhost:8080/api/docs
+echo   鍚姩瀹屾垚锛?
+echo   鍚庣: http://localhost:8000
+echo   鍓嶇: http://localhost:5173
+echo   API鏂囨。: http://localhost:8000/api/docs
 echo ========================================
+

@@ -320,7 +320,7 @@ async def stream_message(
 
 @router.get("/smart-questions")
 async def get_smart_questions(
-    mode: str = "fast",
+    mode: str = "smart",
     user_id: str = Depends(get_current_user_id),
     db: AsyncSession = Depends(get_db),
 ):
@@ -344,7 +344,7 @@ async def get_smart_questions(
             )
 
         if mode == "fast":
-            questions = smart_questions_service._get_rule_based_questions(order_data)
+            questions = smart_questions_service.get_rule_based_questions(order_data)
             return {"questions": questions, "mode": "fast"}
 
         questions = await smart_questions_service.generate_smart_questions(
@@ -357,6 +357,6 @@ async def get_smart_questions(
     except Exception as exc:
         logger.warning("Failed to build smart questions: %s", exc, exc_info=True)
         return {
-            "questions": smart_questions_service._get_rule_based_questions(),
+            "questions": smart_questions_service.get_default_questions(),
             "mode": "fallback",
         }

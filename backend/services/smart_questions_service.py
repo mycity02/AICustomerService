@@ -1,264 +1,324 @@
-"""
-智能快速问题推荐服务
-根据用户画像、订单历史、浏览记录等智能推荐问题
-"""
-from typing import List, Dict, Any, Optional
-from langchain_core.prompts import ChatPromptTemplate
-from config import settings, init_chat_model
-import json
+"""Smart quick-question suggestions for the chat welcome card."""
+from __future__ import annotations
+
 import hashlib
+import json
+import re
 from datetime import datetime, timedelta
+from typing import Any, Dict, List, Optional
+
+from langchain_core.prompts import ChatPromptTemplate
+
+from config import init_chat_model
+
+MAX_QUESTION_COUNT = 3
+
+QUESTION_BANK: List[Dict[str, str]] = [
+    {
+        "topic": "logistics",
+        "label": "查看物流",
+        "question": "帮我查看物流信息",
+        "icon": "package",
+    },
+    {
+        "topic": "order_issue",
+        "label": "订单有问题",
+        "question": "我的订单有问题",
+        "icon": "package",
+    },
+    {
+        "topic": "refund",
+        "label": "申请退款",
+        "question": "如何申请退款？",
+        "icon": "refund",
+    },
+    {
+        "topic": "seller_contact",
+        "label": "联系卖家",
+        "question": "如何联系卖家？",
+        "icon": "help",
+    },
+    {
+        "topic": "usage_help",
+        "label": "使用帮助",
+        "question": "使用遇到问题怎么办？",
+        "icon": "help",
+    },
+    {
+        "topic": "purchase_help",
+        "label": "购买咨询",
+        "question": "如何购买作品？",
+        "icon": "cart",
+    },
+]
+
+TOPIC_INDEX = {item["topic"]: item for item in QUESTION_BANK}
+
+SMART_QUESTION_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            """你是电商客服欢迎卡片的文案助手。
+
+你的任务不是决定 UI，也不是决定按钮动作。你只负责生成 3 条适合直接点击发送的中文问题文本候选。
+
+硬性要求：
+1. 只围绕当前系统已支持的客服场景：订单问题、物流、退款、联系卖家、使用帮助、购买咨询。
+2. 不能生成域外话题，也不能生成未支持业务，例如购物车、优惠券、发票、积分、旅游、闲聊等。
+3. 必须输出 JSON 对象，不要输出 markdown，不要解释。
+4. questions 必须恰好 3 条。
+5. 每条都使用这个结构：{"label":"...", "question":"...", "topic":"..."}。
+6. topic 只能是：logistics、order_issue、refund、seller_contact、usage_help、purchase_help。
+7. label 要短，适合按钮展示，2 到 8 个中文字符。
+8. question 要像用户会直接发给客服的话，8 到 18 个中文字符。
+9. 三条内容不能重复，优先推荐和用户上下文最相关的内容。
+
+输出示例：
+{"questions":[
+  {"label":"查看物流","question":"帮我查看物流信息","topic":"logistics"},
+  {"label":"申请退款","question":"如何申请退款？","topic":"refund"},
+  {"label":"联系卖家","question":"如何联系卖家？","topic":"seller_contact"}
+]}""",
+        ),
+        (
+            "human",
+            """用户上下文：
+{context}
+
+请返回 3 条候选问题。""",
+        ),
+    ]
+)
 
 
 class SmartQuestionsService:
-    """智能问题推荐服务"""
-    
+    """Build smart quick questions for the welcome card."""
+
     def __init__(self):
-        # 初始化LLM
-        self.llm = init_chat_model(temperature=0.7, max_tokens=500)
-        
-        # 内存缓存 (生产环境应使用Redis)
+        self.llm = init_chat_model(temperature=0.4, max_tokens=300)
         self._cache: Dict[str, Dict[str, Any]] = {}
-        self._cache_ttl = 3600  # 缓存1小时
-    
+        self._cache_ttl = 3600
+
     def _get_cache_key(self, user_id: str, context: str) -> str:
-        """生成缓存键"""
-        # 使用用户ID和上下文的hash作为缓存键
-        context_hash = hashlib.md5(context.encode()).hexdigest()[:8]
+        context_hash = hashlib.md5(context.encode("utf-8")).hexdigest()[:8]
         return f"smart_questions:{user_id}:{context_hash}"
-    
+
     def _get_cached_questions(self, cache_key: str) -> Optional[List[Dict[str, Any]]]:
-        """从缓存获取问题"""
-        if cache_key in self._cache:
-            cached = self._cache[cache_key]
-            # 检查是否过期
-            if datetime.now() < cached["expires_at"]:
-                return cached["questions"]
-            else:
-                # 删除过期缓存
-                del self._cache[cache_key]
-        return None
-    
-    def _set_cached_questions(self, cache_key: str, questions: List[Dict[str, Any]]):
-        """设置缓存"""
+        cached = self._cache.get(cache_key)
+        if not cached:
+            return None
+        if datetime.now() >= cached["expires_at"]:
+            self._cache.pop(cache_key, None)
+            return None
+        return cached["questions"]
+
+    def _set_cached_questions(self, cache_key: str, questions: List[Dict[str, Any]]) -> None:
         self._cache[cache_key] = {
             "questions": questions,
-            "expires_at": datetime.now() + timedelta(seconds=self._cache_ttl)
+            "expires_at": datetime.now() + timedelta(seconds=self._cache_ttl),
         }
-    
+
     async def generate_smart_questions(
         self,
         user_id: str,
         user_profile: Dict[str, Any],
-        recent_orders: List[Dict[str, Any]] = None,
-        browsing_history: List[Dict[str, Any]] = None
+        recent_orders: List[Dict[str, Any]] | None = None,
+        browsing_history: List[Dict[str, Any]] | None = None,
     ) -> List[Dict[str, Any]]:
-        """
-        根据用户数据智能生成快速问题
-        
-        Args:
-            user_id: 用户ID
-            user_profile: 用户画像 (偏好、兴趣等)
-            recent_orders: 最近订单
-            browsing_history: 浏览历史
-        
-        Returns:
-            快速问题列表
-        """
-        # 构建用户上下文
         context = self._build_user_context(user_profile, recent_orders, browsing_history)
-        
-        # 检查缓存
         cache_key = self._get_cache_key(user_id, context)
         cached_questions = self._get_cached_questions(cache_key)
         if cached_questions:
-            print(f"使用缓存的智能问题: {cache_key}")
             return cached_questions
-        
-        # 使用AI生成个性化问题
-        prompt = ChatPromptTemplate.from_messages([
-            ("system", """你是一个智能客服助手,负责为用户生成个性化的售后服务快速问题。
 
-**客服定位**: 售后服务为主,不推荐商品
-
-**任务**: 根据用户的订单历史、浏览记录、偏好等信息,生成4个最相关的售后服务问题。
-
-**规则**:
-1. 问题要简短(10字以内)
-2. 聚焦售后服务: 订单查询、物流、退款、使用帮助、投诉建议
-3. 如果用户有待收货订单,推荐"查看物流"
-4. 如果用户有已完成订单,推荐"申请退款"、"联系卖家"
-5. 如果是新用户,推荐基础问题: "如何购买"、"使用帮助"
-
-**输出格式** (JSON):
-{{
-  "questions": [
-    {{"label": "问题文本", "question": "完整问题", "icon": "emoji图标", "reason": "推荐理由"}},
-    ...
-  ]
-}}
-
-**示例**:
-- 用户有待收货订单 → "查看物流" 📦
-- 用户有已完成订单 → "如何申请退款?" 💰
-- 用户是新用户 → "如何购买作品?" 🛒
-- 用户购买过项目 → "使用遇到问题" ❓"""),
-            ("human", """用户信息:
-{context}
-
-请生成4个个性化的售后服务问题:""")
-        ])
-        
         try:
-            response = await self.llm.ainvoke(
-                prompt.format_messages(context=context)
-            )
-            
-            # 解析AI返回的JSON
-            result = json.loads(response.content)
-            questions = result.get("questions", [])
-            
-            # 转换为前端需要的格式
-            quick_actions = []
-            for q in questions[:4]:  # 最多4个
-                quick_actions.append({
+            response = await self.llm.ainvoke(SMART_QUESTION_PROMPT.format_messages(context=context))
+            raw_questions = self._extract_questions(response.content)
+            questions = self._normalize_questions(raw_questions, recent_orders)
+        except Exception:
+            questions = self.get_rule_based_questions(recent_orders)
+
+        self._set_cached_questions(cache_key, questions)
+        return questions
+
+    def _extract_questions(self, content: Any) -> List[Dict[str, Any]]:
+        text = getattr(content, "content", content)
+        if not isinstance(text, str):
+            raise ValueError("smart questions response must be a string")
+
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned)
+            cleaned = re.sub(r"\s*```$", "", cleaned)
+
+        if not cleaned.startswith("{"):
+            match = re.search(r"\{.*\}", cleaned, flags=re.DOTALL)
+            if match:
+                cleaned = match.group(0)
+
+        payload = json.loads(cleaned)
+        questions = payload.get("questions")
+        if not isinstance(questions, list):
+            raise ValueError("smart questions payload must contain a questions list")
+        return questions
+
+    def _normalize_questions(
+        self,
+        raw_questions: List[Dict[str, Any]],
+        recent_orders: List[Dict[str, Any]] | None = None,
+    ) -> List[Dict[str, Any]]:
+        normalized: List[Dict[str, Any]] = []
+        seen_questions: set[str] = set()
+
+        for item in raw_questions:
+            if not isinstance(item, dict):
+                continue
+
+            topic = str(item.get("topic", "")).strip()
+            template = TOPIC_INDEX.get(topic)
+            if template is None:
+                continue
+
+            label = self._clean_text(item.get("label")) or template["label"]
+            question = self._clean_text(item.get("question")) or template["question"]
+            if not question:
+                continue
+
+            normalized_key = re.sub(r"\s+", "", question)
+            if normalized_key in seen_questions:
+                continue
+            seen_questions.add(normalized_key)
+
+            normalized.append(
+                {
                     "type": "button",
-                    "label": q.get("label", ""),
+                    "label": label[:8],
                     "action": "send_question",
-                    "data": {"question": q.get("question", q.get("label", ""))},
-                    "icon": q.get("icon", "💬")
-                })
-            
-            # 缓存结果
-            self._set_cached_questions(cache_key, quick_actions)
-            
-            return quick_actions
-        
-        except Exception as e:
-            print(f"生成智能问题失败: {e}")
-            # 返回基于规则的智能问题
-            return self._get_rule_based_questions(recent_orders)
-    
+                    "data": {"question": question[:18]},
+                    "icon": template["icon"],
+                }
+            )
+            if len(normalized) >= MAX_QUESTION_COUNT:
+                break
+
+        if len(normalized) < MAX_QUESTION_COUNT:
+            for item in self.get_rule_based_questions(recent_orders):
+                key = re.sub(r"\s+", "", item["data"]["question"])
+                if key in seen_questions:
+                    continue
+                seen_questions.add(key)
+                normalized.append(item)
+                if len(normalized) >= MAX_QUESTION_COUNT:
+                    break
+
+        return normalized[:MAX_QUESTION_COUNT]
+
+    def _clean_text(self, value: Any) -> str:
+        if value is None:
+            return ""
+        text = str(value).strip()
+        text = re.sub(r"\s+", " ", text)
+        text = text.replace('"', "").replace("'", "")
+        return text
+
     def _build_user_context(
         self,
         user_profile: Dict[str, Any],
-        recent_orders: List[Dict[str, Any]] = None,
-        browsing_history: List[Dict[str, Any]] = None
+        recent_orders: List[Dict[str, Any]] | None = None,
+        browsing_history: List[Dict[str, Any]] | None = None,
     ) -> str:
-        """构建用户上下文描述"""
-        context_parts = []
-        
-        # 用户画像
+        context_parts: List[str] = []
+
         if user_profile:
             interests = user_profile.get("interests", [])
             if interests:
-                context_parts.append(f"用户兴趣: {', '.join(interests)}")
-            
+                context_parts.append(f"用户兴趣: {', '.join(map(str, interests))}")
+
             preferences = user_profile.get("preferences", {})
             if preferences:
                 context_parts.append(f"用户偏好: {json.dumps(preferences, ensure_ascii=False)}")
-        
-        # 订单历史
+
         if recent_orders:
-            order_info = []
-            for order in recent_orders[:3]:  # 最近3个订单
-                status = order.get("status", "")
-                product_name = order.get("product_name", "")
-                if status == "shipped":
-                    order_info.append(f"有待收货订单: {product_name}")
-                elif status == "completed":
-                    order_info.append(f"已购买: {product_name}")
-            
+            order_info: List[str] = []
+            for order in recent_orders[:3]:
+                status = str(order.get("status", "")).strip()
+                product_name = str(order.get("product_name", "")).strip()
+                if status == "shipped" and product_name:
+                    order_info.append(f"待收货订单: {product_name}")
+                elif status == "completed" and product_name:
+                    order_info.append(f"已完成订单: {product_name}")
+                elif status == "pending_payment" and product_name:
+                    order_info.append(f"待支付订单: {product_name}")
             if order_info:
-                context_parts.append("订单历史:\n" + "\n".join(order_info))
-        
-        # 浏览历史
+                context_parts.append("订单信息:\n" + "\n".join(order_info))
+
         if browsing_history:
-            viewed_products = []
-            for item in browsing_history[:5]:  # 最近5个浏览
-                product_name = item.get("product_name", "")
-                tech_stack = item.get("tech_stack", [])
+            viewed_products: List[str] = []
+            for item in browsing_history[:5]:
+                product_name = str(item.get("product_name", "")).strip()
+                tech_stack = item.get("tech_stack", []) or []
                 if product_name:
-                    viewed_products.append(f"{product_name} ({', '.join(tech_stack)})")
-            
+                    tech_text = ", ".join(map(str, tech_stack[:4]))
+                    viewed_products.append(f"{product_name} ({tech_text})" if tech_text else product_name)
             if viewed_products:
-                context_parts.append("浏览历史:\n" + "\n".join(viewed_products))
-        
-        # 如果没有任何信息,标记为新用户
+                context_parts.append("浏览记录:\n" + "\n".join(viewed_products))
+
         if not context_parts:
-            context_parts.append("新用户,没有历史数据")
-        
+            context_parts.append("新用户，没有历史订单和浏览记录。")
+
         return "\n\n".join(context_parts)
-    
-    def _get_rule_based_questions(self, recent_orders: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """基于规则生成智能问题(快速,不需要AI)"""
-        questions = []
-        
-        # 如果有待收货订单,优先推荐查看物流
+
+    def get_rule_based_questions(
+        self,
+        recent_orders: List[Dict[str, Any]] | None = None,
+    ) -> List[Dict[str, Any]]:
+        questions: List[Dict[str, Any]] = []
+        used_topics: set[str] = set()
+
         if recent_orders:
             for order in recent_orders[:3]:
                 if order.get("status") == "shipped":
-                    questions.append({
-                        "type": "button",
-                        "label": "查看物流信息",
-                        "action": "send_question",
-                        "data": {"question": "查看物流信息"},
-                        "icon": "🚚"
-                    })
+                    logistics = TOPIC_INDEX["logistics"]
+                    questions.append(
+                        {
+                            "type": "button",
+                            "label": logistics["label"],
+                            "action": "send_question",
+                            "data": {"question": logistics["question"]},
+                            "icon": logistics["icon"],
+                        }
+                    )
+                    used_topics.add("logistics")
                     break
-        
-        # 补充售后相关问题
-        default_questions = [
-            {
-                "type": "button",
-                "label": "订单有问题",
-                "action": "send_question",
-                "data": {"question": "我的订单有问题"},
-                "icon": "📦"
-            },
-            {
-                "type": "button",
-                "label": "如何申请退款?",
-                "action": "send_question",
-                "data": {"question": "如何申请退款?"},
-                "icon": "💰"
-            },
-            {
-                "type": "button",
-                "label": "如何联系卖家?",
-                "action": "send_question",
-                "data": {"question": "如何联系卖家?"},
-                "icon": "💬"
-            },
-            {
-                "type": "button",
-                "label": "使用遇到问题",
-                "action": "send_question",
-                "data": {"question": "使用遇到问题怎么办?"},
-                "icon": "❓"
-            },
-            {
-                "type": "button",
-                "label": "如何购买作品?",
-                "action": "send_question",
-                "data": {"question": "如何购买作品?"},
-                "icon": "🛒"
-            }
-        ]
-        
-        # 补充到4个问题
-        for q in default_questions:
-            if len(questions) >= 4:
+
+        for item in QUESTION_BANK:
+            if item["topic"] in used_topics:
+                continue
+            questions.append(
+                {
+                    "type": "button",
+                    "label": item["label"],
+                    "action": "send_question",
+                    "data": {"question": item["question"]},
+                    "icon": item["icon"],
+                }
+            )
+            if len(questions) >= MAX_QUESTION_COUNT:
                 break
-            if q not in questions:
-                questions.append(q)
-        
-        return questions[:4]
-    
+
+        return questions[:MAX_QUESTION_COUNT]
+
+    def _get_rule_based_questions(
+        self,
+        recent_orders: List[Dict[str, Any]] | None = None,
+    ) -> List[Dict[str, Any]]:
+        return self.get_rule_based_questions(recent_orders)
+
+    def get_default_questions(self) -> List[Dict[str, Any]]:
+        return self.get_rule_based_questions()
+
     def _get_default_questions(self) -> List[Dict[str, Any]]:
-        """获取默认问题(当所有方法都失败时使用)"""
-        return self._get_rule_based_questions()
+        return self.get_default_questions()
 
 
-# 全局实例
 smart_questions_service = SmartQuestionsService()
