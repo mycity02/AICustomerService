@@ -27,7 +27,7 @@ class AIEngine:
     def get_runtime(self, business_id: Optional[str] = None) -> RuntimePort:
         return self._runtime_factory.get_runtime(business_id)
 
-    async def process_message(
+    def process_message(
         self,
         *,
         user_id: str,
@@ -39,7 +39,7 @@ class AIEngine:
         business_id: Optional[str] = None,
     ) -> Dict[str, Any]:
         workflow = self.get_workflow(business_id)
-        return await workflow.process_message(
+        return workflow.process_message(
             user_id=user_id,
             session_id=session_id,
             message=message,
@@ -48,7 +48,7 @@ class AIEngine:
             aftersales_flow=aftersales_flow,
         )
 
-    async def process_message_stream(
+    def process_message_stream(
         self,
         *,
         user_id: str,
@@ -60,7 +60,7 @@ class AIEngine:
         business_id: Optional[str] = None,
     ):
         workflow = self.get_workflow(business_id)
-        async for event in workflow.process_message_stream(
+        for event in workflow.process_message_stream(
             user_id=user_id,
             session_id=session_id,
             message=message,

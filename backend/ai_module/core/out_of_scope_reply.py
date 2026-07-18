@@ -19,10 +19,10 @@ _BANNED_TOKENS = (
 )
 
 _ANCHOR_TOKENS = (
-    "技术栈",
+    "香型",
     "预算",
-    "难度",
-    "项目",
+    "口感",
+    "茶品",
     "订单",
     "售后",
     "商品",
@@ -31,9 +31,9 @@ _ANCHOR_TOKENS = (
     "优惠券",
     "购物车",
     "发票",
-    "毕业设计",
-    "Python",
-    "Java",
+    "茶叶",
+    "产地",
+    "冲泡",
 )
 
 _FULL_REPLY_PROMPT = ChatPromptTemplate.from_messages(
@@ -56,11 +56,15 @@ _FULL_REPLY_PROMPT = ChatPromptTemplate.from_messages(
 - "我们先说回刚才的XX""我们先接着刚才的XX任务"
 - "XX确实挺XX的。" 开头（这个句式用太多了）
 
-风格多样化示例（注意每条风格都不同）：
+不自然示例（不要这样写）：
+- 不要直接写“我们先说回刚才的茶品选择”，这种模板化转折会显得生硬。
+- 新加坡确实挺不错的。我们先接着刚才的选茶任务。
+
+更自然示例（注意每条风格都不同）：
 - 哈哈俄罗斯冬天是真冷，不过咱先把订单的事搞定？刚才您还没选呢。
 - 俄罗斯啊，等这边处理完可以慢慢聊。您那 7 个订单里要看哪个？
 - 好家伙直接飞俄罗斯了，订单那边您还继续不？
-- 新加坡好地方，回头可以聊。对了您刚才项目选到哪一步了？
+- 新加坡好地方，回头可以聊。对了您刚才茶品选到哪一步了？
 - 火锅确实治愈，吃完再说。您那个退货申请要不要先提交了？
 
 只输出最终回复，不要解释。""",
@@ -127,7 +131,7 @@ def build_fallback_reply(message: str, redirect: str) -> str:
     return f"{ack}{redirect}"
 
 
-async def compose_out_of_scope_reply(
+def compose_out_of_scope_reply(
     message: str,
     redirect: str,
     *,
@@ -141,7 +145,7 @@ async def compose_out_of_scope_reply(
         return fallback
 
     try:
-        response = await llm.ainvoke(
+        response = llm.invoke(
             _FULL_REPLY_PROMPT.format_messages(
                 message=(message or "").strip(),
                 business_name=business_name or "当前业务",

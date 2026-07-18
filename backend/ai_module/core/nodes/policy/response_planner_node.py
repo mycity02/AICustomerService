@@ -47,7 +47,7 @@ class ResponsePlannerNode(BaseNode):
             return True
         return message in {"这个", "那个", "这个呢", "那个呢", "然后呢", "继续呢", "怎么办", "啥意思", "什么意思"}
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         state["response_mode"] = RESPONSE_MODE_CONTINUE_CURRENT_TASK
         state["resume_mode"] = None
 

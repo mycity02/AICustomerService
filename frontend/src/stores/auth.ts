@@ -47,13 +47,8 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function register(userData: { username: string; password: string }) {
-    try {
-      await apiClient.post('/auth/register', userData)
-      return true
-    } catch (error) {
-      console.error('Register failed:', error)
-      return false
-    }
+    await apiClient.post('/auth/register', userData)
+    return true
   }
 
   async function fetchUser() {

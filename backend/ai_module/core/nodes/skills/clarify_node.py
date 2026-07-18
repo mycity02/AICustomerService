@@ -16,7 +16,7 @@ class ClarifyNode(BaseNode):
         super().__init__(llm=llm)
         self.memory_builder = MemoryContextBuilder()
     
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         """执行意图澄清"""
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个友好的AI客服助手。用户的消息意图不够明确，请自然地询问用户需要什么帮助。
@@ -31,7 +31,7 @@ class ClarifyNode(BaseNode):
 请自然地询问用户需要什么帮助：""")
         ])
 
-        response = await self.llm.ainvoke(
+        response = self.llm.invoke(
             prompt.format_messages(
                 message=state["user_message"],
                 short_term_memory=self.memory_builder.build_short_term_memory_text(
@@ -44,7 +44,7 @@ class ClarifyNode(BaseNode):
         state["response"] = response.content
         return state
 
-    async def execute_stream(self, state: ConversationState):
+    def execute_stream(self, state: ConversationState):
         """以流式方式执行意图澄清，逐字输出结果。"""
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个友好的AI客服助手。用户的消息意图不够明确，请自然地询问用户需要什么帮助。
@@ -68,7 +68,7 @@ class ClarifyNode(BaseNode):
         )
 
         full_response = ""
-        async for chunk in self.llm.astream(messages):
+        for chunk in self.llm.stream(messages):
             if chunk.content:
                 full_response += chunk.content
                 yield chunk.content

@@ -9,7 +9,7 @@ from ai_module.core.nodes.aftersales.constants import TYPE_LABELS
 class AftersalesResultNode(BaseNode):
     """Step 7: render aftersales result."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         flow_data = state.get("aftersales_flow") or {}
         refund_no = flow_data.get("refund_no", "")
         review_result = flow_data.get("review_result", {})

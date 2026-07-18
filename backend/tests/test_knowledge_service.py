@@ -1,11 +1,11 @@
-﻿import json
+import json
 import os
 import sys
 import types
 import importlib.util
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -25,9 +25,9 @@ _config_spec.loader.exec_module(_config_mod)
 _kr_stub = types.ModuleType("backend.services.knowledge_retriever")
 _kr_stub.knowledge_retriever = SimpleNamespace(
     available=True,
-    delete_by_metadata=AsyncMock(return_value=0),
-    delete_documents=AsyncMock(return_value=0),
-    add_documents=AsyncMock(return_value=[]),
+    delete_by_metadata=MagicMock(return_value=0),
+    delete_documents=MagicMock(return_value=0),
+    add_documents=MagicMock(return_value=[]),
 )
 sys.modules["backend.services.knowledge_retriever"] = _kr_stub
 sys.modules["services.knowledge_retriever"] = _kr_stub
@@ -54,10 +54,7 @@ def service(tmp_path: Path):
     svc.metadata = {}
     svc.legacy_upload_dirs = []
     return svc
-
-
-@pytest.mark.asyncio
-async def test_reindex_documents_backfills_legacy_file(service, monkeypatch):
+def test_reindex_documents_backfills_legacy_file(service, monkeypatch):
     legacy_dir = service.upload_dir.parent / "legacy"
     legacy_dir.mkdir()
     legacy_file = legacy_dir / "legacy.txt"
@@ -66,26 +63,23 @@ async def test_reindex_documents_backfills_legacy_file(service, monkeypatch):
 
     fake_retriever = SimpleNamespace(
         available=True,
-        delete_by_metadata=AsyncMock(return_value=0),
-        delete_documents=AsyncMock(return_value=0),
-        add_documents=AsyncMock(return_value=["legacy_0"]),
+        delete_by_metadata=MagicMock(return_value=0),
+        delete_documents=MagicMock(return_value=0),
+        add_documents=MagicMock(return_value=["legacy_0"]),
     )
     monkeypatch.setattr(_service_mod, "knowledge_retriever", fake_retriever)
 
-    result = await service.reindex_documents(force=False)
+    result = service.reindex_documents(force=False)
 
     assert result["legacy_imported_count"] == 1
     assert result["indexed_count"] == 1
-    fake_retriever.add_documents.assert_awaited_once()
+    fake_retriever.add_documents.assert_called_once()
     assert (service.upload_dir / "legacy.txt").exists()
     assert service.metadata["legacy"]["chunk_ids"] == ["legacy_0"]
 
     saved_metadata = json.loads(service.metadata_file.read_text(encoding="utf-8"))
     assert saved_metadata["legacy"]["indexed"] is True
-
-
-@pytest.mark.asyncio
-async def test_delete_document_removes_all_chunk_ids(service, monkeypatch):
+def test_delete_document_removes_all_chunk_ids(service, monkeypatch):
     doc_file = service.upload_dir / "doc.txt"
     doc_file.write_text("文档内容", encoding="utf-8")
 
@@ -108,15 +102,15 @@ async def test_delete_document_removes_all_chunk_ids(service, monkeypatch):
 
     fake_retriever = SimpleNamespace(
         available=True,
-        delete_documents=AsyncMock(return_value=2),
-        delete_by_metadata=AsyncMock(return_value=0),
+        delete_documents=MagicMock(return_value=2),
+        delete_by_metadata=MagicMock(return_value=0),
     )
     monkeypatch.setattr(_service_mod, "knowledge_retriever", fake_retriever)
 
-    deleted = await service.delete_document("doc")
+    deleted = service.delete_document("doc")
 
     assert deleted is True
-    fake_retriever.delete_documents.assert_awaited_once_with(["doc_0", "doc_1"], "knowledge_base")
+    fake_retriever.delete_documents.assert_called_once_with(["doc_0", "doc_1"], "knowledge_base")
     assert not doc_file.exists()
     assert "doc" not in service.metadata
 

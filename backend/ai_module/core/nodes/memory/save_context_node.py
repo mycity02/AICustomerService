@@ -131,16 +131,16 @@ class SaveContextNode(BaseNode):
         state["pending_question"] = pending_question
         state["pending_action"] = pending_action
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         self._update_task_state(state)
 
-        await redis_cache.add_message_to_context(
+        redis_cache.add_message_to_context(
             session_id=state["session_id"],
             user_message=state["user_message"],
             assistant_message=state["response"],
         )
 
-        await redis_cache.update_context(
+        redis_cache.update_context(
             session_id=state["session_id"],
             last_intent=state.get("intent") or (state.get("active_task") or {}).get("intent") or state.get("last_intent"),
             intent_history=state.get("intent_history", []),
@@ -152,15 +152,15 @@ class SaveContextNode(BaseNode):
         )
 
         if self.summarizer:
-            context = await redis_cache.get_context(state["session_id"])
+            context = redis_cache.get_context(state["session_id"])
             history = context.get("history", [])
             if self.summarizer.should_summarize(history):
                 try:
-                    result = await self.summarizer.summarize(
+                    result = self.summarizer.summarize(
                         history,
                         context.get("conversation_summary", ""),
                     )
-                    await redis_cache.update_context(
+                    redis_cache.update_context(
                         session_id=state["session_id"],
                         history=result["remaining_history"],
                         conversation_summary=result["summary"],
@@ -168,7 +168,7 @@ class SaveContextNode(BaseNode):
                 except Exception:
                     logger.warning("摘要生成失败，执行回退截断", exc_info=True)
                     truncated = self.summarizer.fallback_truncate(history)
-                    await redis_cache.update_context(
+                    redis_cache.update_context(
                         session_id=state["session_id"],
                         history=truncated["remaining_history"],
                     )

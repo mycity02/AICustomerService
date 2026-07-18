@@ -6,7 +6,7 @@ import logging
 from datetime import datetime
 from typing import Dict, List, Optional
 from sqlalchemy import select, and_
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from database.models import (
     RefundRequest, RefundType, RefundStatus, RefundReason,
     Order, OrderItem, OrderStatus, Transaction, TransactionStatus
@@ -44,17 +44,17 @@ STATUS_LABELS = {
 class RefundService:
     """售后退款服务"""
 
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
 
-    async def get_eligible_orders(self, user_id: str) -> List[Dict]:
+    def get_eligible_orders(self, user_id: str) -> List[Dict]:
         """获取可申请售后的订单（已支付/已发货/已完成，且无进行中的售后）"""
         # 查询有效订单（使用枚举值）
         stmt = select(Order).where(
             Order.buyer_id == user_id,
             Order.status.in_([OrderStatus.PAID.value, OrderStatus.DELIVERED.value, OrderStatus.COMPLETED.value])
         ).order_by(Order.created_at.desc())
-        result = await self.db.execute(stmt)
+        result = self.db.execute(stmt)
         orders = result.scalars().all()
         
         logger.info(f"找到 {len(orders)} 个有效订单（已支付/已送达/已完成）")
@@ -70,14 +70,14 @@ class RefundService:
                     RefundStatus.RETURNING, RefundStatus.REFUNDING
                 ])
             )
-            refund_result = await self.db.execute(refund_stmt)
+            refund_result = self.db.execute(refund_stmt)
             existing_refund = refund_result.scalar_one_or_none()
             if existing_refund:
                 logger.info(f"订单 {order.order_no} 已有进行中的售后，跳过")
             if existing_refund is None:
                 # 获取订单商品
                 items_stmt = select(OrderItem).where(OrderItem.order_id == order.id)
-                items_result = await self.db.execute(items_stmt)
+                items_result = self.db.execute(items_stmt)
                 items = items_result.scalars().all()
 
                 eligible.append({
@@ -101,7 +101,7 @@ class RefundService:
 
         return eligible
 
-    async def create_refund_request(
+    def create_refund_request(
         self, user_id: str, order_id: str, order_item_id: Optional[str],
         refund_type: str, reason: str, description: Optional[str],
         evidence_images: Optional[List[str]], refund_amount: int
@@ -124,8 +124,8 @@ class RefundService:
             status=RefundStatus.PENDING,
         )
         self.db.add(refund)
-        await self.db.commit()
-        await self.db.refresh(refund)
+        self.db.commit()
+        self.db.refresh(refund)
 
         return {
             "id": refund.id,
@@ -135,10 +135,10 @@ class RefundService:
             "refund_amount": refund.refund_amount,
         }
 
-    async def auto_review(self, refund_id: str) -> Dict:
+    def auto_review(self, refund_id: str) -> Dict:
         """自动审核：小额或质量问题自动通过"""
         stmt = select(RefundRequest).where(RefundRequest.id == refund_id)
-        result = await self.db.execute(stmt)
+        result = self.db.execute(stmt)
         refund = result.scalar_one_or_none()
         if not refund:
             return {"approved": False, "reason": "售后单不存在"}
@@ -162,20 +162,20 @@ class RefundService:
                 refund.status = RefundStatus.APPROVED
             refund.review_note = note
             refund.reviewed_at = datetime.now()
-            await self.db.commit()
+            self.db.commit()
 
             # 仅退款类型直接执行退款
             if refund.refund_type == RefundType.REFUND_ONLY:
-                await self.process_refund(refund_id)
+                self.process_refund(refund_id)
 
             return {"approved": True, "reason": note, "status": refund.status.value}
 
         return {"approved": False, "reason": "需要人工审核", "status": RefundStatus.PENDING.value}
 
-    async def process_refund(self, refund_id: str) -> bool:
+    def process_refund(self, refund_id: str) -> bool:
         """执行退款：更新订单状态和交易记录"""
         stmt = select(RefundRequest).where(RefundRequest.id == refund_id)
-        result = await self.db.execute(stmt)
+        result = self.db.execute(stmt)
         refund = result.scalar_one_or_none()
         if not refund:
             return False
@@ -186,7 +186,7 @@ class RefundService:
 
         # 更新订单状态
         order_stmt = select(Order).where(Order.id == refund.order_id)
-        order_result = await self.db.execute(order_stmt)
+        order_result = self.db.execute(order_stmt)
         order = order_result.scalar_one_or_none()
         if order:
             order.status = OrderStatus.REFUNDED
@@ -196,31 +196,31 @@ class RefundService:
             Transaction.order_id == refund.order_id,
             Transaction.status == TransactionStatus.SUCCESS
         )
-        tx_result = await self.db.execute(tx_stmt)
+        tx_result = self.db.execute(tx_stmt)
         transaction = tx_result.scalar_one_or_none()
         if transaction:
             transaction.status = TransactionStatus.REFUNDED
             transaction.refund_time = datetime.now()
 
-        await self.db.commit()
+        self.db.commit()
         logger.info(f"退款完成: refund_no={refund.refund_no}, amount={refund.refund_amount}")
         return True
 
-    async def get_refund(self, refund_id: str) -> Optional[Dict]:
+    def get_refund(self, refund_id: str) -> Optional[Dict]:
         """获取售后详情"""
         stmt = select(RefundRequest).where(RefundRequest.id == refund_id)
-        result = await self.db.execute(stmt)
+        result = self.db.execute(stmt)
         refund = result.scalar_one_or_none()
         if not refund:
             return None
         return self._to_dict(refund)
 
-    async def list_refunds(self, user_id: str, page: int = 1, page_size: int = 20) -> Dict:
+    def list_refunds(self, user_id: str, page: int = 1, page_size: int = 20) -> Dict:
         """获取用户售后列表"""
         stmt = select(RefundRequest).where(
             RefundRequest.user_id == user_id
         ).order_by(RefundRequest.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
-        result = await self.db.execute(stmt)
+        result = self.db.execute(stmt)
         refunds = result.scalars().all()
         return {"items": [self._to_dict(r) for r in refunds]}
 

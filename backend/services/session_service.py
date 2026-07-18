@@ -3,7 +3,7 @@
 """
 from datetime import datetime, timedelta
 from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, desc
 import uuid
 
@@ -14,7 +14,7 @@ from schemas import SessionCreate, SessionResponse
 class SessionService:
     """会话管理服务类"""
     
-    async def create_session(self, db: AsyncSession, user_id: str, session_data: SessionCreate) -> SessionResponse:
+    def create_session(self, db: Session, user_id: str, session_data: SessionCreate) -> SessionResponse:
         """创建新会话"""
         session = Session(
             id=str(uuid.uuid4()),
@@ -25,14 +25,14 @@ class SessionService:
         )
         
         db.add(session)
-        await db.commit()
-        await db.refresh(session)
+        db.commit()
+        db.refresh(session)
         
         return SessionResponse.model_validate(session)
     
-    async def get_session(self, db: AsyncSession, session_id: str, user_id: str) -> Optional[SessionResponse]:
+    def get_session(self, db: Session, session_id: str, user_id: str) -> Optional[SessionResponse]:
         """获取会话详情"""
-        result = await db.execute(
+        result = db.execute(
             select(Session).where(
                 Session.id == session_id,
                 Session.user_id == user_id
@@ -45,15 +45,15 @@ class SessionService:
         
         return SessionResponse.model_validate(session)
     
-    async def list_user_sessions(
+    def list_user_sessions(
         self,
-        db: AsyncSession,
+        db: Session,
         user_id: str,
         limit: int = 20,
         offset: int = 0
     ) -> List[SessionResponse]:
         """列出用户的所有会话"""
-        result = await db.execute(
+        result = db.execute(
             select(Session)
             .where(Session.user_id == user_id)
             .order_by(desc(Session.updated_at))
@@ -64,19 +64,19 @@ class SessionService:
         
         return [SessionResponse.model_validate(s) for s in sessions]
     
-    async def update_session_activity(self, db: AsyncSession, session_id: str):
+    def update_session_activity(self, db: Session, session_id: str):
         """更新会话活动时间"""
-        result = await db.execute(select(Session).where(Session.id == session_id))
+        result = db.execute(select(Session).where(Session.id == session_id))
         session = result.scalar_one_or_none()
         
         if session:
             session.last_message_at = datetime.utcnow()
             session.message_count += 1
-            await db.commit()
+            db.commit()
     
-    async def delete_session(self, db: AsyncSession, session_id: str, user_id: str) -> bool:
+    def delete_session(self, db: Session, session_id: str, user_id: str) -> bool:
         """删除会话及其所有消息"""
-        result = await db.execute(
+        result = db.execute(
             select(Session).where(
                 Session.id == session_id,
                 Session.user_id == user_id
@@ -87,22 +87,22 @@ class SessionService:
         if not session:
             return False
         
-        await db.delete(session)
-        await db.commit()
+        db.delete(session)
+        db.commit()
         return True
 
-    async def update_session_title(self, db: AsyncSession, session_id: str, title: str):
+    def update_session_title(self, db: Session, session_id: str, title: str):
         """更新会话标题"""
-        result = await db.execute(select(Session).where(Session.id == session_id))
+        result = db.execute(select(Session).where(Session.id == session_id))
         session = result.scalar_one_or_none()
         
         if session:
             session.title = title
-            await db.commit()
+            db.commit()
 
-    async def delete_session(self, db: AsyncSession, session_id: str, user_id: str) -> bool:
+    def delete_session(self, db: Session, session_id: str, user_id: str) -> bool:
         """删除会话及其所有消息"""
-        result = await db.execute(
+        result = db.execute(
             select(Session).where(
                 Session.id == session_id,
                 Session.user_id == user_id
@@ -113,8 +113,8 @@ class SessionService:
         if not session:
             return False
 
-        await db.delete(session)
-        await db.commit()
+        db.delete(session)
+        db.commit()
         return True
 
     

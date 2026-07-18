@@ -81,7 +81,7 @@ class FunctionCallingNode(BaseNode):
         messages.append(("human", f"[用户意图: {intent}] {state['user_message']}"))
         return messages
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         self._refresh_tools(execution_context=state.get("execution_context"))
 
         if state.get("intent") in SKIP_INTENTS or state.get("confidence", 0) < 0.6:
@@ -96,7 +96,7 @@ class FunctionCallingNode(BaseNode):
             return state
 
         try:
-            response = await self.llm_with_tools.ainvoke(self._build_messages(state))
+            response = self.llm_with_tools.invoke(self._build_messages(state))
             if not response.tool_calls:
                 state["tool_result"] = None
                 state["tool_used"] = None
@@ -114,7 +114,7 @@ class FunctionCallingNode(BaseNode):
                     continue
 
                 try:
-                    result = await tool_fn.ainvoke(tool_args)
+                    result = tool_fn.invoke(tool_args)
                     tool_results.append({"tool": tool_name, "result": result})
                     logger.info("Tool call succeeded: %s", tool_name)
                 except Exception as exc:

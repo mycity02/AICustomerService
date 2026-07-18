@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for QANode conversation_summary injection.
 
 Tests verify that:
@@ -10,7 +10,7 @@ import sys
 import os
 import types
 import importlib.util
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -38,7 +38,7 @@ _config_spec.loader.exec_module(_config_mod)
 # Stub knowledge_retriever
 _kr_mod = types.ModuleType("services.knowledge_retriever")
 _mock_retriever = MagicMock()
-_mock_retriever.retrieve = AsyncMock(return_value=[])
+_mock_retriever.retrieve = MagicMock(return_value=[])
 _kr_mod.knowledge_retriever = _mock_retriever
 sys.modules["services.knowledge_retriever"] = _kr_mod
 
@@ -112,55 +112,46 @@ def _make_state(user_message="请问这个商品怎么样？", conversation_summ
 # ── Tests ────────────────────────────────────────────────────────────
 
 class TestQANodeSummaryInjection:
-    @pytest.mark.asyncio
-    async def test_summary_injected_when_present(self):
+    def test_summary_injected_when_present(self):
         """Non-empty conversation_summary should appear in the prompt."""
         summary_text = "用户之前咨询了订单ORD123的物流状态"
         state = _make_state(conversation_summary=summary_text)
         node = QANode(llm=MagicMock())
 
-        messages = await node._prepare_messages(state)
+        messages = node._prepare_messages(state)
 
         system_content = messages[0].content
         assert "对话历史摘要" in system_content
         assert summary_text in system_content
-
-    @pytest.mark.asyncio
-    async def test_no_summary_section_when_empty(self):
+    def test_no_summary_section_when_empty(self):
         """Empty conversation_summary should not add a summary section."""
         state = _make_state(conversation_summary="")
         node = QANode(llm=MagicMock())
 
-        messages = await node._prepare_messages(state)
+        messages = node._prepare_messages(state)
 
         system_content = messages[0].content
         assert "对话历史摘要" not in system_content
-
-    @pytest.mark.asyncio
-    async def test_no_summary_section_when_missing(self):
+    def test_no_summary_section_when_missing(self):
         """Missing conversation_summary key should not add a summary section."""
         state = _make_state()
         del state["conversation_summary"]
         node = QANode(llm=MagicMock())
 
-        messages = await node._prepare_messages(state)
+        messages = node._prepare_messages(state)
 
         system_content = messages[0].content
         assert "对话历史摘要" not in system_content
-
-    @pytest.mark.asyncio
-    async def test_chitchat_skips_rag_prompt(self):
+    def test_chitchat_skips_rag_prompt(self):
         """Chitchat messages should use SIMPLE_PROMPT, not RAG_PROMPT with summary."""
         state = _make_state(user_message="你好", conversation_summary="一些摘要内容")
         node = QANode(llm=MagicMock())
 
-        messages = await node._prepare_messages(state)
+        messages = node._prepare_messages(state)
 
         system_content = messages[0].content
         assert "对话历史摘要" not in system_content
-
-    @pytest.mark.asyncio
-    async def test_short_reply_with_continuation_uses_rag_prompt(self):
+    def test_short_reply_with_continuation_uses_rag_prompt(self):
         """Continuation replies should not be downgraded to chitchat by length."""
         _mock_retriever.retrieve.reset_mock()
         state = _make_state(
@@ -170,9 +161,9 @@ class TestQANodeSummaryInjection:
         )
         node = QANode(llm=MagicMock())
 
-        messages = await node._prepare_messages(state)
+        messages = node._prepare_messages(state)
 
         system_content = messages[0].content
         assert "对话历史摘要" in system_content
-        _mock_retriever.retrieve.assert_awaited()
+        _mock_retriever.retrieve.assert_called()
 

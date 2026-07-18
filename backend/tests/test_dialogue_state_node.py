@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from ai_module.core.nodes.policy.dialogue_state_node import DialogueStateNode
 
 
@@ -26,21 +26,18 @@ def _make_state(**overrides):
 
 
 class TestDialogueStateNode:
-    @pytest.mark.asyncio
-    async def test_continue_previous_task_merges_slots(self):
+    def test_continue_previous_task_merges_slots(self):
         node = DialogueStateNode()
         state = _make_state(slot_updates={"budget_max": 800})
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["active_task"]["intent"] == "推荐"
         assert result["active_task"]["slots"]["language"] == "Java"
         assert result["active_task"]["slots"]["budget_max"] == 800
         assert result["pending_question"] is None
         assert result["pending_action"] is None
-
-    @pytest.mark.asyncio
-    async def test_new_request_suspends_previous_task(self):
+    def test_new_request_suspends_previous_task(self):
         node = DialogueStateNode()
         state = _make_state(
             user_message="先帮我查订单",
@@ -49,15 +46,13 @@ class TestDialogueStateNode:
             continue_previous_task=False,
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["active_task"]["intent"] == "订单查询"
         assert len(result["task_stack"]) == 1
         assert result["task_stack"][0]["intent"] == "推荐"
         assert result["task_stack"][0]["status"] == "suspended"
-
-    @pytest.mark.asyncio
-    async def test_resume_task_restores_from_stack(self):
+    def test_resume_task_restores_from_stack(self):
         node = DialogueStateNode()
         state = _make_state(
             user_message="继续刚才那个",
@@ -80,16 +75,14 @@ class TestDialogueStateNode:
             ],
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["active_task"]["intent"] == "推荐"
         assert result["active_task"]["slots"]["language"] == "Java"
         assert result["active_task"]["slots"]["budget_max"] == 800
         assert len(result["task_stack"]) == 1
         assert result["task_stack"][0]["intent"] == "订单查询"
-
-    @pytest.mark.asyncio
-    async def test_selected_action_is_folded_into_task_slots(self):
+    def test_selected_action_is_folded_into_task_slots(self):
         node = DialogueStateNode()
         state = _make_state(
             user_message="第一个",
@@ -103,7 +96,7 @@ class TestDialogueStateNode:
             },
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["active_task"]["slots"]["selected_product_id"] == 42
         assert result["active_task"]["slots"]["selected_product_title"] == "Java 图书管理系统"

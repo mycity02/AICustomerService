@@ -9,18 +9,18 @@ from langchain_core.prompts import ChatPromptTemplate
 class PurchaseGuideNode(BaseNode):
     """购买指导节点"""
     
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         """执行购买指导"""
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是购买指导专家。帮助用户了解购买流程。
 
 平台购买流程：
-1. 浏览商品，选择心仪的毕业设计作品
+1. 浏览茶品，选择适合自饮或礼赠的茶叶
 2. 点击"加入购物车"或"立即购买"
 3. 在购物车中确认商品和价格
 4. 点击"去结算"，填写订单信息
 5. 选择支付方式（支持支付宝、微信支付）
-6. 完成支付后，卖家会交付商品文件
+6. 完成支付后，茶坊会备货并安排物流发出
 7. 确认收货后可以评价
 
 支付方式：
@@ -28,8 +28,8 @@ class PurchaseGuideNode(BaseNode):
 - 微信支付
 
 退款政策：
-- 商品交付前可以取消订单，全额退款
-- 商品交付后，如有质量问题可申请退款
+- 订单发货前可以申请取消，审核通过后原路退款
+- 签收后如有包装破损、错发或质量问题可申请售后
 - 退款会在3-5个工作日内到账
 
 要求：
@@ -39,25 +39,25 @@ class PurchaseGuideNode(BaseNode):
             ("human", "用户问题：{question}\n\n请提供购买指导：")
         ])
         
-        response = await self.llm.ainvoke(prompt.format_messages(
+        response = self.llm.invoke(prompt.format_messages(
             question=state["user_message"]
         ))
         
         state["response"] = response.content
         return state
 
-    async def execute_stream(self, state: ConversationState):
+    def execute_stream(self, state: ConversationState):
         """以流式方式执行购买指导，逐字输出结果。"""
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是购买指导专家。帮助用户了解购买流程。
 
 平台购买流程：
-1. 浏览商品，选择心仪的毕业设计作品
+1. 浏览茶品，选择适合自饮或礼赠的茶叶
 2. 点击"加入购物车"或"立即购买"
 3. 在购物车中确认商品和价格
 4. 点击"去结算"，填写订单信息
 5. 选择支付方式（支持支付宝、微信支付）
-6. 完成支付后，卖家会交付商品文件
+6. 完成支付后，茶坊会备货并安排物流发出
 7. 确认收货后可以评价
 
 支付方式：
@@ -65,8 +65,8 @@ class PurchaseGuideNode(BaseNode):
 - 微信支付
 
 退款政策：
-- 商品交付前可以取消订单，全额退款
-- 商品交付后，如有质量问题可申请退款
+- 订单发货前可以申请取消，审核通过后原路退款
+- 签收后如有包装破损、错发或质量问题可申请售后
 - 退款会在3-5个工作日内到账
 
 要求：
@@ -79,7 +79,7 @@ class PurchaseGuideNode(BaseNode):
         messages = prompt.format_messages(question=state["user_message"])
 
         full_response = ""
-        async for chunk in self.llm.astream(messages):
+        for chunk in self.llm.stream(messages):
             if chunk.content:
                 full_response += chunk.content
                 yield chunk.content

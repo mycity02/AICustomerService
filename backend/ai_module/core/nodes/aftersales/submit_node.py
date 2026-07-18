@@ -8,7 +8,7 @@ from ai_module.core.state import ConversationState
 class AftersalesSubmitNode(BaseNode):
     """Step 6: submit request and auto-review."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         from database.connection import get_db_context
         from services.refund_service import RefundService
 
@@ -18,9 +18,9 @@ class AftersalesSubmitNode(BaseNode):
         items = flow_data.get("items", [])
         order_item_id = items[0].get("id") if items else None
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             service = RefundService(db)
-            refund = await service.create_refund_request(
+            refund = service.create_refund_request(
                 user_id=user_id,
                 order_id=order_id,
                 order_item_id=order_item_id,
@@ -30,7 +30,7 @@ class AftersalesSubmitNode(BaseNode):
                 evidence_images=flow_data.get("evidence_images"),
                 refund_amount=flow_data.get("refund_amount", 0),
             )
-            review_result = await service.auto_review(refund["id"])
+            review_result = service.auto_review(refund["id"])
 
         flow_data["refund_id"] = refund["id"]
         flow_data["refund_no"] = refund["refund_no"]

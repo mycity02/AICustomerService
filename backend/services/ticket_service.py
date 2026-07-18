@@ -3,7 +3,7 @@
 """
 from typing import List, Optional
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, desc, and_
 import uuid
 
@@ -14,9 +14,9 @@ from schemas import TicketCreate, TicketUpdate, TicketResponse, TicketHistoryRes
 class TicketService:
     """工单服务类"""
     
-    async def create_ticket(
+    def create_ticket(
         self,
-        db: AsyncSession,
+        db: Session,
         user_id: str,
         ticket_data: TicketCreate,
         session_id: Optional[str] = None,
@@ -36,14 +36,14 @@ class TicketService:
         )
         
         db.add(ticket)
-        await db.commit()
-        await db.refresh(ticket)
+        db.commit()
+        db.refresh(ticket)
         
         return TicketResponse.model_validate(ticket)
     
-    async def get_ticket(
+    def get_ticket(
         self,
-        db: AsyncSession,
+        db: Session,
         ticket_id: str,
         user_id: Optional[str] = None
     ) -> Optional[TicketResponse]:
@@ -53,7 +53,7 @@ class TicketService:
         if user_id:
             query = query.where(Ticket.user_id == user_id)
         
-        result = await db.execute(query)
+        result = db.execute(query)
         ticket = result.scalar_one_or_none()
         
         if not ticket:
@@ -61,16 +61,16 @@ class TicketService:
         
         return TicketResponse.model_validate(ticket)
     
-    async def update_ticket_status(
+    def update_ticket_status(
         self,
-        db: AsyncSession,
+        db: Session,
         ticket_id: str,
         status: str,
         operator_id: str,
         comment: Optional[str] = None
     ) -> TicketResponse:
         """更新工单状态"""
-        result = await db.execute(select(Ticket).where(Ticket.id == ticket_id))
+        result = db.execute(select(Ticket).where(Ticket.id == ticket_id))
         ticket = result.scalar_one_or_none()
         
         if not ticket:
@@ -94,14 +94,14 @@ class TicketService:
         )
         
         db.add(history)
-        await db.commit()
-        await db.refresh(ticket)
+        db.commit()
+        db.refresh(ticket)
         
         return TicketResponse.model_validate(ticket)
     
-    async def list_user_tickets(
+    def list_user_tickets(
         self,
-        db: AsyncSession,
+        db: Session,
         user_id: str,
         status: Optional[str] = None,
         limit: int = 20,
@@ -115,18 +115,18 @@ class TicketService:
         
         query = query.order_by(desc(Ticket.created_at)).limit(limit).offset(offset)
         
-        result = await db.execute(query)
+        result = db.execute(query)
         tickets = result.scalars().all()
         
         return [TicketResponse.model_validate(t) for t in tickets]
     
-    async def get_ticket_history(
+    def get_ticket_history(
         self,
-        db: AsyncSession,
+        db: Session,
         ticket_id: str
     ) -> List[TicketHistoryResponse]:
         """获取工单历史"""
-        result = await db.execute(
+        result = db.execute(
             select(TicketHistory)
             .where(TicketHistory.ticket_id == ticket_id)
             .order_by(TicketHistory.created_at)

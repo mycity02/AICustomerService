@@ -1,13 +1,30 @@
-"""
-数据库模块
-"""
-from .connection import engine, async_session, get_db
-from .models import Base, User, Session, Message, Attachment, Ticket, TicketHistory, KnowledgeDocument, SystemConfig, AuditLog, Coupon, UserCoupon, Address, RefundRequest, RefundType, RefundStatus, RefundReason
+"""Database exports."""
+from .connection import db_session, engine, get_db, get_db_context
+from .models import (
+    Address,
+    Attachment,
+    AuditLog,
+    Base,
+    Coupon,
+    KnowledgeDocument,
+    Message,
+    RefundReason,
+    RefundRequest,
+    RefundStatus,
+    RefundType,
+    Session,
+    SystemConfig,
+    Ticket,
+    TicketHistory,
+    User,
+    UserCoupon,
+)
 
 __all__ = [
     "engine",
-    "async_session",
+    "db_session",
     "get_db",
+    "get_db_context",
     "Base",
     "User",
     "Session",

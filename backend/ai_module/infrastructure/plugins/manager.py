@@ -42,13 +42,13 @@ class PluginManager:
             del self.plugins[plugin_name]
             logger.info("Unregistered plugin: %s", plugin_name)
 
-    async def execute(self, plugin_name: str, **kwargs) -> Any:
+    def execute(self, plugin_name: str, **kwargs) -> Any:
         plugin = self.resolve_plugin(plugin_name)
         if plugin is None:
             raise ValueError(f"Plugin {plugin_name} does not exist")
 
         logger.info("Executing plugin: %s", plugin.name)
-        return await plugin.execute(**kwargs)
+        return plugin.execute(**kwargs)
 
     def get_plugin(self, plugin_name: str) -> Optional[AIPlugin]:
         return self.plugins.get(plugin_name)

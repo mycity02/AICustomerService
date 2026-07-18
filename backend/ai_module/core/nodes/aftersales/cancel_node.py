@@ -8,7 +8,7 @@ from ai_module.core.state import ConversationState
 class AftersalesCancelNode(BaseNode):
     """Cancel action within aftersales workflow context."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         state["aftersales_flow"] = None
         state["response"] = "已为您取消本次售后申请。需要的话我可以帮您重新发起。"
         state["quick_actions"] = [

@@ -1,5 +1,13 @@
 <template>
   <div class="refunds-page page-shell">
+    <section class="system-page-intro">
+      <div class="system-page-intro-copy">
+        <span class="system-page-kicker">售后服务中心</span>
+        <h1>退款与售后</h1>
+        <p>查询茶品退款、退货与换货申请，集中跟踪审核结果、处理节点和退款金额。</p>
+      </div>
+      <span class="system-page-metric">共 {{ total }} 条记录</span>
+    </section>
     <section class="filter-strip section-card">
       <button
         v-for="tab in tabs"
@@ -16,7 +24,7 @@
     <section v-if="loading" class="state-card section-card">
       <div class="loader"></div>
       <strong>正在读取售后记录</strong>
-      <p>金额、状态与处理时间会一起加载。</p>
+      <p>正在同步售后类型、处理状态、退款金额与审核时间。</p>
     </section>
 
     <section v-else-if="filteredRefunds.length === 0" class="state-card section-card">
@@ -24,7 +32,7 @@
         <el-icon><Money /></el-icon>
       </div>
       <strong>当前筛选下没有售后记录</strong>
-      <p>你可以切换标签查看全部记录。</p>
+      <p>可切换处理状态查看记录，或前往智能客服咨询售后流程。</p>
     </section>
 
     <section v-else class="refund-list">

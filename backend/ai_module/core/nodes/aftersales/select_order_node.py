@@ -9,13 +9,13 @@ from ai_module.core.nodes.aftersales.constants import ORDER_STATUS_MAP
 class AftersalesSelectOrderNode(BaseNode):
     """Step 1: list eligible orders."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         from database.connection import get_db_context
         from services.refund_service import RefundService
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             service = RefundService(db)
-            orders = await service.get_eligible_orders(state.get("user_id"))
+            orders = service.get_eligible_orders(state.get("user_id"))
 
         if not orders:
             state["response"] = "您暂时没有可以申请售后的订单。\n\n只有已支付、已送达或已完成的订单才能申请售后。"

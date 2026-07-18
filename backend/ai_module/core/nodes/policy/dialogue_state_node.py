@@ -144,7 +144,7 @@ class DialogueStateNode(BaseNode):
                 return restored, remaining
         return None, task_stack
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         intent = state.get("intent")
         dialogue_act = state.get("dialogue_act")
         continue_previous_task = bool(state.get("continue_previous_task"))

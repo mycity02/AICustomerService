@@ -8,6 +8,6 @@ from ai_module.core.state import ConversationState
 class PurchaseFallbackNode(BaseNode):
     """Return a stable error when the purchase step cannot be resolved."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         state["response"] = "抱歉，购买流程出现了问题，请重新开始。"
         return state

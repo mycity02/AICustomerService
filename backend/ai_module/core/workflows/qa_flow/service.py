@@ -71,8 +71,8 @@ class QAFlowService:
 
     def business_scope_hint(self, state) -> str:
         business_id = state.get("business_id") or ""
-        if business_id == "graduation-marketplace":
-            return "项目推荐、技术栈、商品详情、购买流程、订单查询或售后问题"
+        if business_id == "tea-retail":
+            return "茶品推荐、产地风味、冲泡方法、购买流程、订单物流或售后问题"
 
         active_task = state.get("active_task") or {}
         active_intent = active_task.get("intent")
@@ -81,10 +81,10 @@ class QAFlowService:
 
         return f"{self.business_name(state)}相关问题、资料解读、商品或服务说明、购买流程、订单与售后问题"
 
-    async def scope_redirect_reply(self, state) -> str:
+    def scope_redirect_reply(self, state) -> str:
         business_name = self.business_name(state)
         scope_hint = self.business_scope_hint(state)
-        return await compose_out_of_scope_reply(
+        return compose_out_of_scope_reply(
             state.get("user_message", ""),
             (
                 f"如果您想继续聊{business_name}这边，"
@@ -158,7 +158,7 @@ class QAFlowService:
             ]
         )
 
-    async def prepare_messages(self, state):
+    def prepare_messages(self, state):
         user_message = state["user_message"]
 
         if self.is_light_chat(user_message, state):
@@ -177,7 +177,7 @@ class QAFlowService:
             if text:
                 attachment_texts.append(f"《{attachment.get('file_name', '文件')}》\n{text[:5000]}")
 
-        docs = await knowledge_retriever.retrieve(
+        docs = knowledge_retriever.retrieve(
             query=user_message,
             collection_name="knowledge_base",
             top_k=settings.RETRIEVAL_TOP_K,
@@ -215,20 +215,20 @@ class QAFlowService:
             state["sources"] = []
             state["response"] = quick_reply
 
-    async def generate_response(self, state):
+    def generate_response(self, state):
         quick_reply = state.get("_qa_quick_reply")
         if quick_reply:
             return state
 
         messages = state.get("_qa_messages")
         if messages is None:
-            messages = await self.prepare_messages(state)
-        response = await self.llm.ainvoke(messages)
+            messages = self.prepare_messages(state)
+        response = self.llm.invoke(messages)
         content = (response.content if hasattr(response, "content") else str(response)).strip()
-        state["response"] = content or await self.scope_redirect_reply(state)
+        state["response"] = content or self.scope_redirect_reply(state)
         return state
 
-    async def generate_response_stream(self, state):
+    def generate_response_stream(self, state):
         quick_reply = self.quick_reply_for_chitchat(state["user_message"])
         if quick_reply:
             state["retrieved_docs"] = []
@@ -239,15 +239,15 @@ class QAFlowService:
 
         messages = state.get("_qa_messages")
         if messages is None:
-            messages = await self.prepare_messages(state)
+            messages = self.prepare_messages(state)
         full_response = ""
-        async for chunk in self.llm.astream(messages):
+        for chunk in self.llm.stream(messages):
             if chunk.content:
                 full_response += chunk.content
                 yield chunk.content
 
         full_response = full_response.strip()
         if not full_response:
-            full_response = await self.scope_redirect_reply(state)
+            full_response = self.scope_redirect_reply(state)
             yield full_response
         state["response"] = full_response

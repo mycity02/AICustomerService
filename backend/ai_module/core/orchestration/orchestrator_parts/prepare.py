@@ -24,7 +24,7 @@ class WorkflowPrepareMixin:
         confidence = float(state.get("confidence") or 0.0)
         return not state.get("intent") and confidence < 0.6
 
-    async def _load_context_only(
+    def _load_context_only(
         self,
         user_id: str,
         session_id: str,
@@ -41,18 +41,18 @@ class WorkflowPrepareMixin:
             purchase_flow=purchase_flow,
             aftersales_flow=aftersales_flow,
         )
-        return await self.context_node.execute(state)
+        return self.context_node.execute(state)
 
-    async def _run_prepare_pipeline(self, state: ConversationState) -> ConversationState:
+    def _run_prepare_pipeline(self, state: ConversationState) -> ConversationState:
         logger.info("Preparing intent for session=%s", state.get("session_id"))
         total_start = time.time()
 
         t0 = time.time()
-        state = await self.context_node.execute(state)
+        state = self.context_node.execute(state)
         logger.info("context_node completed in %.2fs", time.time() - t0)
 
         t0 = time.time()
-        state = await self.message_entry_node.execute(state)
+        state = self.message_entry_node.execute(state)
         logger.info(
             "message_entry_node completed in %.2fs entry_classifier=%s inflow_type=%s intent=%s active_flow=%s current_step=%s",
             time.time() - t0,
@@ -72,7 +72,7 @@ class WorkflowPrepareMixin:
             return state
 
         t0 = time.time()
-        state = await self.response_planner_node.execute(state)
+        state = self.response_planner_node.execute(state)
         logger.info(
             "response_planner_node completed in %.2fs response_mode=%s resume_mode=%s",
             time.time() - t0,
@@ -85,7 +85,7 @@ class WorkflowPrepareMixin:
             return state
 
         t0 = time.time()
-        state = await self.policy_node.execute(state)
+        state = self.policy_node.execute(state)
         logger.info(
             "policy_node completed in %.2fs intent=%s confidence=%s need_clarification=%s",
             time.time() - t0,
@@ -99,7 +99,7 @@ class WorkflowPrepareMixin:
             return state
 
         t0 = time.time()
-        state = await self.dialogue_state_node.execute(state)
+        state = self.dialogue_state_node.execute(state)
         logger.info(
             "dialogue_state_node completed in %.2fs active_task=%s stack_size=%s",
             time.time() - t0,
@@ -110,7 +110,7 @@ class WorkflowPrepareMixin:
         logger.info("prepare_intent completed in %.2fs", time.time() - total_start)
         return state
 
-    async def prepare_intent(
+    def prepare_intent(
         self,
         user_id,
         session_id,
@@ -127,4 +127,4 @@ class WorkflowPrepareMixin:
             purchase_flow=purchase_flow,
             aftersales_flow=aftersales_flow,
         )
-        return await self._run_prepare_pipeline(state)
+        return self._run_prepare_pipeline(state)

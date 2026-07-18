@@ -1,4 +1,4 @@
-﻿import types
+import types
 
 import pytest
 from ai_module.core.nodes.policy.conversation_control_node import ConversationControlNode
@@ -31,7 +31,7 @@ class _FakeLLM:
     def __init__(self, content: str):
         self.content = content
 
-    async def ainvoke(self, _messages):
+    def invoke(self, _messages):
         return types.SimpleNamespace(content=self.content)
 
 
@@ -40,38 +40,33 @@ class _CapturingLLM:
         self.content = content
         self.messages = None
 
-    async def ainvoke(self, messages):
+    def invoke(self, messages):
         self.messages = messages
         return types.SimpleNamespace(content=self.content)
 
 
 class TestResponsePlannerNode:
-    @pytest.mark.asyncio
-    async def test_irrelevant_input_goes_to_answer_then_resume(self):
+    def test_irrelevant_input_goes_to_answer_then_resume(self):
         node = ResponsePlannerNode()
         state = _make_state(inflow_type="irrelevant")
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["response_mode"] == "answer_then_resume"
         assert result["resume_mode"] == "resume_exact"
         assert result["continue_previous_task"] is False
-
-    @pytest.mark.asyncio
-    async def test_related_blocker_uses_safe_step_resume(self):
+    def test_related_blocker_uses_safe_step_resume(self):
         node = ResponsePlannerNode()
         state = _make_state(
             inflow_type="related_blocker",
             user_message="我不会操作这一步",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["response_mode"] == "help_current_task"
         assert result["resume_mode"] == "resume_from_safe_step"
-
-    @pytest.mark.asyncio
-    async def test_unknown_self_contained_message_prefers_answer_then_resume(self):
+    def test_unknown_self_contained_message_prefers_answer_then_resume(self):
         node = ResponsePlannerNode()
         state = _make_state(
             inflow_type="unknown",
@@ -79,26 +74,22 @@ class TestResponsePlannerNode:
             user_message="今天天气真好",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["response_mode"] == "answer_then_resume"
         assert result["resume_mode"] == "resume_exact"
-
-    @pytest.mark.asyncio
-    async def test_unknown_ambiguous_reference_still_clarifies(self):
+    def test_unknown_ambiguous_reference_still_clarifies(self):
         node = ResponsePlannerNode()
         state = _make_state(
             inflow_type="unknown",
             user_message="那个呢",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["response_mode"] == "clarify_before_resume"
         assert result["resume_mode"] == "resume_from_safe_step"
-
-    @pytest.mark.asyncio
-    async def test_conversation_control_generates_resume_prompt(self):
+    def test_conversation_control_generates_resume_prompt(self):
         node = ConversationControlNode()
         state = _make_state(
             response_mode="clarify_before_resume",
@@ -106,26 +97,22 @@ class TestResponsePlannerNode:
             user_message="那个呢",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert "那个呢" in result["response"]
         assert "第一个" in result["response"]
         assert "切换" not in result["response"]
-
-    @pytest.mark.asyncio
-    async def test_conversation_control_answers_side_topic_naturally(self):
+    def test_conversation_control_answers_side_topic_naturally(self):
         node = ConversationControlNode(llm=_FakeLLM("这句我先接住，刚才那个推荐我也还记着。"))
         state = _make_state(
             response_mode="answer_then_resume",
             user_message="谢谢",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert "刚才那个推荐" in result["response"]
-
-    @pytest.mark.asyncio
-    async def test_conversation_control_includes_short_term_memory_in_prompt(self):
+    def test_conversation_control_includes_short_term_memory_in_prompt(self):
         llm = _CapturingLLM("我先接住这个话题。")
         node = ConversationControlNode(llm=llm)
         state = _make_state(
@@ -144,15 +131,13 @@ class TestResponsePlannerNode:
             },
         )
 
-        await node.execute(state)
+        node.execute(state)
 
         prompt_text = "\n".join(getattr(message, "content", "") for message in llm.messages)
         assert "短期记忆：" in prompt_text
         assert "我要去新疆旅行" in prompt_text
         assert "当前主任务：推荐" in prompt_text
-
-    @pytest.mark.asyncio
-    async def test_conversation_control_redirects_out_of_scope_topic_back_to_business(self):
+    def test_conversation_control_redirects_out_of_scope_topic_back_to_business(self):
         node = ConversationControlNode(
             llm=_FakeLLM("新疆确实值得去看看。顺着刚才的订单问题，您可以继续往下说，我接着帮您处理。")
         )
@@ -162,7 +147,7 @@ class TestResponsePlannerNode:
             user_message="去新疆旅行",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert "新疆确实值得去看看" in result["response"]
         assert "订单问题" in result["response"]
@@ -170,11 +155,9 @@ class TestResponsePlannerNode:
         assert "先放一放" not in result["response"]
         assert "简短接一下" not in result["response"]
         assert "订单查询任务" not in result["response"]
-
-    @pytest.mark.asyncio
-    async def test_conversation_control_redirects_out_of_scope_topic_naturally_in_recommend_flow(self):
+    def test_conversation_control_redirects_out_of_scope_topic_naturally_in_recommend_flow(self):
         node = ConversationControlNode(
-            llm=_FakeLLM("新加坡节奏挺快的。说回刚才挑项目这件事，您更在意技术栈、预算还是难度？")
+            llm=_FakeLLM("新加坡节奏挺快的。说回刚才选茶这件事，您更在意茶类、香型、预算还是口感浓淡？")
         )
         state = _make_state(
             response_mode="answer_then_resume",
@@ -188,17 +171,15 @@ class TestResponsePlannerNode:
             },
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert "新加坡节奏挺快的" in result["response"]
-        assert "说回刚才挑项目这件事" in result["response"]
-        assert "您更在意技术栈、预算还是难度" in result["response"]
-        assert "刚才我们在看 Python 项目" not in result["response"]
+        assert "说回刚才选茶这件事" in result["response"]
+        assert "您更在意茶类、香型、预算还是口感浓淡" in result["response"]
+        assert "刚才我们在看 Python 茶品" not in result["response"]
         assert "主要还是帮您做" not in result["response"]
-
-    @pytest.mark.asyncio
-    async def test_conversation_control_out_of_scope_prompt_emphasizes_natural_transition(self):
-        llm = _CapturingLLM("新加坡节奏挺快的。说回刚才挑项目这件事，您更在意技术栈、预算还是难度？")
+    def test_conversation_control_out_of_scope_prompt_emphasizes_natural_transition(self):
+        llm = _CapturingLLM("新加坡节奏挺快的。说回刚才选茶这件事，您更在意茶类、香型、预算还是口感浓淡？")
         node = ConversationControlNode(llm=llm)
         state = _make_state(
             response_mode="answer_then_resume",
@@ -212,10 +193,10 @@ class TestResponsePlannerNode:
             },
         )
 
-        await node.execute(state)
+        node.execute(state)
 
         prompt_text = "\n".join(getattr(message, "content", "") for message in llm.messages)
         assert "不自然示例" in prompt_text
         assert "更自然示例" in prompt_text
-        assert "不要直接写“我们先说回刚才的项目选择”" in prompt_text
+        assert "不要直接写“我们先说回刚才的茶品选择”" in prompt_text
 

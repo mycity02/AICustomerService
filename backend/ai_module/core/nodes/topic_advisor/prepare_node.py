@@ -7,6 +7,6 @@ from .base_step_node import TopicAdvisorStepNode
 
 
 class TopicAdvisorPrepareNode(TopicAdvisorStepNode):
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         self.service.prepare_state(state)
         return state

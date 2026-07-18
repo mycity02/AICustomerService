@@ -1,23 +1,27 @@
 <template>
   <div class="cart-page page-shell container">
-    <div class="page-header">
-      <h1 class="page-title">购物车</h1>
-      <span class="item-count">{{ totalItems }} 件商品</span>
-    </div>
+    <section class="system-page-intro">
+      <div class="system-page-intro-copy">
+        <span class="system-page-kicker">订单结算</span>
+        <h1>茶品购物车</h1>
+        <p>核对已选茶品、购买数量与订单金额，确认无误后统一提交结算。</p>
+      </div>
+      <span class="system-page-metric">已选 {{ totalItems }} 件茶品</span>
+    </section>
 
     <section v-if="loading" class="state-card section-card">
       <div class="loader"></div>
       <strong>正在同步购物车</strong>
-      <p>马上就好，商品摘要与价格会一起更新。</p>
+      <p>正在同步茶品信息、数量与最新价格。</p>
     </section>
 
     <section v-else-if="items.length === 0" class="state-card section-card">
       <div class="empty-illustration">
         <el-icon><ShoppingCart /></el-icon>
       </div>
-      <strong>购物车还是空的</strong>
-      <p>先去商品中心挑选项目，再回来完成结算。</p>
-      <button class="accent-button" type="button" @click="router.push('/products')">去逛商品</button>
+      <strong>购物车中还没有茶品</strong>
+      <p>前往茶品商城挑选适合自饮或礼赠的好茶，再回来统一结算。</p>
+      <button class="accent-button" type="button" @click="router.push('/products')">选购茶品</button>
     </section>
 
     <div v-else class="cart-content">
@@ -87,7 +91,7 @@
           
           <div class="summary-list">
             <div class="summary-item">
-              <span>商品总数</span>
+              <span>茶品数量</span>
               <span>{{ totalItems }}</span>
             </div>
             <div class="summary-item">
@@ -120,8 +124,8 @@
           </div>
           
           <div class="summary-footer">
-            <p><el-icon><ChatDotRound /></el-icon> 支持 AI 助手咨询</p>
-            <p><el-icon><Document /></el-icon> 购买后自动创建订单</p>
+            <p><el-icon><ChatDotRound /></el-icon> 支持 AI 选茶顾问咨询</p>
+            <p><el-icon><Document /></el-icon> 结算后自动生成茶品订单</p>
           </div>
         </div>
       </aside>
@@ -162,12 +166,12 @@ function formatCents(value: number) {
 
 function getDifficultyText(difficulty?: string) {
   const map: Record<string, string> = {
-    easy: '轻量入门',
-    medium: '标准进阶',
-    hard: '高阶项目'
+    easy: '清新鲜爽',
+    medium: '醇香回甘',
+    hard: '浓醇耐泡'
   }
 
-  return map[difficulty || ''] || '项目方案'
+  return map[difficulty || ''] || '经典茶品'
 }
 
 async function updateQuantity(productId: string, quantity: number) {
@@ -181,14 +185,14 @@ async function updateQuantity(productId: string, quantity: number) {
 
 async function removeItem(productId: string) {
   try {
-    await ElMessageBox.confirm('确定要从购物车移除这个项目吗？', '移除商品', {
+    await ElMessageBox.confirm('确定要从购物车移除这件茶品吗？', '移除茶品', {
       confirmButtonText: '移除',
       cancelButtonText: '取消',
       type: 'warning'
     })
 
     await cartStore.removeFromCart(productId)
-    ElMessage.success('商品已移除')
+    ElMessage.success('茶品已移除')
   } catch (error) {
     if (error !== 'cancel') {
       console.error('Failed to remove item from cart', error)
@@ -217,7 +221,7 @@ async function handleClearCart() {
 
 async function handleCheckout() {
   if (!items.value.length) {
-    ElMessage.warning('购物车为空，先添加商品再结算')
+    ElMessage.warning('购物车为空，请先添加茶品再结算')
     return
   }
 

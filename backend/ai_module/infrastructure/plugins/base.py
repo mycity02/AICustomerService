@@ -22,7 +22,7 @@ class AIPlugin(ABC):
         """Plugin description."""
 
     @abstractmethod
-    async def execute(self, **kwargs) -> Any:
+    def execute(self, **kwargs) -> Any:
         """Execute the plugin."""
 
     def get_schema(self) -> Dict:

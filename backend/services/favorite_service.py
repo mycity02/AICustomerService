@@ -2,7 +2,7 @@
 收藏服务模块
 """
 from typing import List, Dict, Any
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload
 from database.models import Favorite, Product, ProductStatus
@@ -12,13 +12,13 @@ import uuid
 class FavoriteService:
     """收藏服务类"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def add_favorite(self, user_id: str, product_id: str) -> Dict[str, Any]:
+    def add_favorite(self, user_id: str, product_id: str) -> Dict[str, Any]:
         """添加收藏"""
         # 检查商品是否存在
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product).where(Product.id == product_id)
         )
         product = result.scalar_one_or_none()
@@ -27,7 +27,7 @@ class FavoriteService:
             raise ValueError("商品不存在")
         
         # 检查是否已收藏
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Favorite).where(
                 and_(
                     Favorite.user_id == user_id,
@@ -48,14 +48,14 @@ class FavoriteService:
         )
         
         self.db.add(favorite)
-        await self.db.commit()
-        await self.db.refresh(favorite)
+        self.db.commit()
+        self.db.refresh(favorite)
         
         return {"message": "收藏成功", "favorite_id": favorite.id}
     
-    async def remove_favorite(self, user_id: str, product_id: str) -> bool:
+    def remove_favorite(self, user_id: str, product_id: str) -> bool:
         """取消收藏"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Favorite).where(
                 and_(
                     Favorite.user_id == user_id,
@@ -68,12 +68,12 @@ class FavoriteService:
         if not favorite:
             return False
         
-        await self.db.delete(favorite)
-        await self.db.commit()
+        self.db.delete(favorite)
+        self.db.commit()
         
         return True
     
-    async def get_favorites(self, user_id: str, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
+    def get_favorites(self, user_id: str, page: int = 1, page_size: int = 20) -> Dict[str, Any]:
         """获取收藏列表"""
         print(f"[DEBUG] 开始获取收藏列表，用户ID: {user_id}, 页码: {page}")
         
@@ -87,7 +87,7 @@ class FavoriteService:
         query = query.offset(offset).limit(page_size)
         
         print(f"[DEBUG] 执行数据库查询...")
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         print(f"[DEBUG] 查询完成，开始处理结果...")
         favorites = result.unique().scalars().all()
         print(f"[DEBUG] 找到 {len(favorites)} 条收藏记录")
@@ -124,9 +124,9 @@ class FavoriteService:
             "total": len(items)
         }
     
-    async def is_favorited(self, user_id: str, product_id: str) -> bool:
+    def is_favorited(self, user_id: str, product_id: str) -> bool:
         """检查是否已收藏"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Favorite).where(
                 and_(
                     Favorite.user_id == user_id,

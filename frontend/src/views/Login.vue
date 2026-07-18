@@ -6,11 +6,11 @@
     <div class="auth-shell">
       <section class="auth-story">
         <div class="story-header">
-          <span class="eyebrow">AI 智能客服平台</span>
-          <h1>让每一次对话都创造价值</h1>
+          <span class="eyebrow">云岫茶坊 · AI 茶叶销售系统</span>
+          <h1>让选茶、购买与售后服务更简单</h1>
           <p>
-            融合人工智能与专业服务，为您的业务提供 24/7 全天候智能客服解决方案。
-            从商品咨询到售后支持，一站式解决客户需求。
+            登录后可按茶类、产地与香型挑选茶品，并使用 AI 选茶顾问完成风味推荐、
+            商品对比、订单物流查询和售后咨询。
           </p>
         </div>
 
@@ -19,22 +19,22 @@
             <div class="story-icon">
               <el-icon><ChatDotRound /></el-icon>
             </div>
-            <strong>智能对话</strong>
-            <p>基于大语言模型的智能客服，理解客户需求，提供专业解答</p>
+            <strong>智能选茶</strong>
+            <p>结合自饮或礼赠场景、预算与口味偏好，推荐更合适的茶品</p>
           </article>
           <article class="story-card">
             <div class="story-icon">
               <el-icon><ShoppingBag /></el-icon>
             </div>
-            <strong>商品推荐</strong>
-            <p>精准分析用户偏好，智能推荐最适合的商品方案</p>
+            <strong>茶品推荐</strong>
+            <p>从茶类检索、风味对比到冲泡建议，帮助你快速完成购买决策</p>
           </article>
           <article class="story-card">
             <div class="story-icon">
               <el-icon><Service /></el-icon>
             </div>
-            <strong>全程服务</strong>
-            <p>从咨询到售后，全流程跟踪，确保客户满意度</p>
+            <strong>订单与售后</strong>
+            <p>统一查询订单、物流进度与退款售后，让服务过程清晰可追踪</p>
           </article>
         </div>
       </section>
@@ -44,7 +44,7 @@
           <div class="card-head">
             <span class="eyebrow">欢迎回来</span>
             <h2>登录账号</h2>
-            <p>继续使用 AI 客服系统，享受智能服务体验</p>
+            <p>登录云岫茶坊，继续管理茶品咨询、订单物流与售后进度</p>
           </div>
 
           <form class="auth-form" @submit.prevent="handleLogin">

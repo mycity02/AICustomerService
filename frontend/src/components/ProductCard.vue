@@ -11,13 +11,13 @@
 
       <div class="media-chips">
         <span class="media-chip">{{ difficultyText }}</span>
-        <span class="media-chip subtle">{{ product.category?.name || '精选项目' }}</span>
+        <span class="media-chip subtle">{{ product.category?.name || '当季精选' }}</span>
       </div>
     </div>
 
     <div class="card-body">
       <div class="card-topline">
-        <span class="card-kicker">Curated Release</span>
+        <span class="card-kicker">严选好茶</span>
         <span class="rating-pill">
           <el-icon><Star /></el-icon>
           {{ product.rating.toFixed(1) }}
@@ -64,16 +64,16 @@ const cartStore = useCartStore()
 
 const difficultyText = computed(() => {
   const map: Record<string, string> = {
-    easy: '轻量入门',
-    medium: '标准进阶',
-    hard: '高阶项目'
+    easy: '清新鲜爽',
+    medium: '醇香回甘',
+    hard: '浓醇耐泡'
   }
 
   return map[props.product.difficulty] || props.product.difficulty
 })
 
 const previewDescription = computed(() => {
-  const raw = props.product.description?.trim() || '适合需要快速完成方案展示、功能演示与交付说明的项目。'
+  const raw = props.product.description?.trim() || '包含产地、工艺、香型与冲泡建议，可先咨询 AI 选茶顾问。'
   return raw.length > 72 ? `${raw.slice(0, 72)}...` : raw
 })
 

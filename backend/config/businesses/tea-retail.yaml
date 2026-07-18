@@ -1,7 +1,7 @@
-# Graduation marketplace business pack
+# Tea retail business pack
 
-business_id: graduation-marketplace
-business_name: 毕业设计商城
+business_id: tea-retail
+business_name: 云岫茶坊
 business_type: ecommerce
 
 api:
@@ -17,7 +17,7 @@ features:
   order_query: true
   product_search: true
   refund_service: true
-  logistics_tracking: false
+  logistics_tracking: true
   coupon_system: false
 
 intent_handlers:
@@ -46,8 +46,9 @@ intent_classifier:
     推荐:
       - 推荐
       - 帮我选
-      - 选题
-      - 毕设题目
+      - 送礼
+      - 自饮
+      - 口粮茶
       - 适合我
       - 不知道选什么
       - 个性化推荐
@@ -58,6 +59,8 @@ intent_classifier:
       - 换货
       - 售后
       - 申请退款
+      - 包装破损
+      - 茶叶受潮
     订单查询:
       - 订单
       - 物流
@@ -81,55 +84,63 @@ intent_classifier:
       - 购买流程
     工单:
       - 投诉
-      - 报错
-      - bug
-      - 故障
-      - 打不开
-      - 不能用
+      - 包装破损
+      - 漏发
+      - 错发
+      - 无法支付
     商品咨询:
-      - 技术栈
-      - 用什么
-      - 这个项目
+      - 产地
+      - 工艺
+      - 香型
+      - 口感
+      - 茶汤
+      - 冲泡
+      - 保质期
+      - 这个茶
       - 详情
-      - 功能
       - 包含什么
     问答:
       - 你好
       - hello
       - hi
+      - 茶坊
       - 平台
       - 介绍
       - 是什么
   examples:
-    - message: 帮我推荐几个 Java 毕设项目
+    - message: 帮我推荐一款适合送礼的乌龙茶
       intent: 推荐
     - message: 我的订单到哪了
       intent: 订单查询
-    - message: 这个项目用什么技术栈
+    - message: 这款茶是什么香型，应该怎么冲泡
       intent: 商品咨询
-    - message: 我要退款
+    - message: 收到的茶叶包装破损了，我要申请售后
       intent: 售后服务
-    - message: 这个平台是做什么的
+    - message: 云岫茶坊能提供哪些服务
       intent: 问答
 
 custom_intents:
-  - name: graduation_project_inquiry
-    description: 用户询问毕业设计项目
+  - name: tea_product_inquiry
+    description: 用户询问茶叶商品
     keywords:
-      - 毕业设计
-      - 项目
-      - 作品
-      - 源码
-      - 代码
+      - 茶叶
+      - 绿茶
+      - 红茶
+      - 乌龙茶
+      - 白茶
+      - 普洱茶
+      - 花茶
 
-  - name: tech_stack_query
-    description: 用户询问技术栈
+  - name: flavor_and_brewing_query
+    description: 用户询问口感、香型或冲泡方式
     keywords:
-      - 技术栈
-      - 用什么开发
-      - 框架
-      - 语言
-      - 技术
+      - 口感
+      - 香型
+      - 回甘
+      - 冲泡
+      - 水温
+      - 产地
+      - 工艺
 
 plugins:
   - name: query_order
@@ -140,7 +151,7 @@ plugins:
   - name: search_products
     enabled: true
     groups: [default]
-    description: 搜索商品
+    description: 搜索茶叶商品
 
   - name: get_user_info
     enabled: true
@@ -150,7 +161,7 @@ plugins:
   - name: check_inventory
     enabled: true
     groups: [default]
-    description: 检查库存
+    description: 检查茶叶库存
 
   - name: get_logistics
     enabled: true
@@ -165,57 +176,64 @@ plugins:
   - name: get_personalized_recommendations
     enabled: true
     groups: [default, topic_advisor]
-    description: 个性化推荐
+    description: 个性化茶品推荐
 
   - name: search_projects
     enabled: true
     groups: [topic_advisor]
-    description: 搜索项目
+    description: 搜索茶叶商品（兼容现有工具名）
 
   - name: get_project_detail
     enabled: true
     groups: [topic_advisor]
-    description: 查询项目详情
+    description: 查询茶叶详情（兼容现有工具名）
 
   - name: compare_projects
     enabled: true
     groups: [topic_advisor]
-    description: 比较项目
+    description: 比较茶叶商品（兼容现有工具名）
 
   - name: check_tech_stack_match
     enabled: true
     groups: [topic_advisor]
-    description: 技术栈匹配
+    description: 匹配风味偏好（兼容现有工具名）
 
 knowledge_base:
   collections:
-    - name: graduation_projects
-      description: 毕业设计项目知识库
-    - name: tech_docs
-      description: 技术文档知识库
+    - name: tea_products
+      description: 茶叶商品知识库
+    - name: brewing_guides
+      description: 茶叶冲泡与保存知识库
     - name: product_catalog
-      description: 商品目录知识库
+      description: 茶叶商品目录知识库
 
 prompts:
   system_prompt: |
-    你是毕业设计商城的 AI 客服助手。
-    你的任务是帮助用户找到合适的毕业设计项目，并回答与商城、订单和购买相关的问题。
+    你是云岫茶坊的 AI 智能客服。
+    你的任务是帮助顾客了解茶叶产地、工艺、香型和冲泡方法，并处理推荐、订单、物流及售后问题。
   function_calling_system_prompt: |
-    你是毕业设计商城的工具调度助手。
-    当问题涉及订单、价格、库存、用户信息或推荐数据时，优先调用工具。
-    如果问题不需要查数据，直接自然回答。
+    你是云岫茶坊的工具调度助手。
+    当问题涉及订单、价格、库存、物流、用户信息或推荐数据时，优先调用工具。
+    如果问题不需要查询实时数据，直接自然回答。
   topic_advisor_system_prompt: |
-    你是毕业设计商城的智能选题助手 Agent。
-    你的目标是帮助用户完成选题、项目对比、技术栈匹配和个性化推荐。
+    你是云岫茶坊的 AI 选茶顾问。
+    你的目标是根据顾客的饮用场景、预算、茶类偏好、香型和口感推荐合适茶品。
+
+    工具名沿用现有接口，但业务含义如下：
+    - search_projects：搜索茶叶商品
+    - get_project_detail：查看单款茶叶详情
+    - compare_projects：对比多款茶叶
+    - check_tech_stack_match：匹配顾客风味偏好
+    - get_personalized_recommendations：根据浏览记录推荐茶品
 
     规则：
     1. 简单需求直接给结果，不要过度调用工具。
-    2. 如果用户需要帮助决策，再做多轮搜索和比较。
-    3. 最终回复必须简洁，给出明确推荐理由。
-    4. 优先推荐预算合适、难度匹配的项目。
+    2. 信息不足时，优先询问自饮或送礼、预算、喜欢的香型和口感浓淡。
+    3. 最终回复必须简洁，并说明推荐理由与冲泡建议。
+    4. 不宣传无法验证的保健或治疗功效。
   greeting: |
-    您好，我是毕业设计商城的 AI 助手，很高兴为您服务。
-    我可以帮您推荐项目、查询订单、解答技术问题和提供购买指导。
+    您好，我是云岫茶坊的 AI 选茶顾问，很高兴为您服务。
+    我可以帮您选茶、比较风味、查询订单物流，也可以解答冲泡和售后问题。
   error_message: |
     抱歉，我遇到了一些问题。请稍后再试，或联系人工客服。
 
@@ -223,3 +241,4 @@ llm:
   temperature: 0.7
   max_tokens: 2000
   model: deepseek-chat
+

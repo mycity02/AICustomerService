@@ -9,8 +9,6 @@ import json
 import shutil
 from typing import List, Dict, Optional, Any
 from pathlib import Path
-from fastapi import UploadFile
-import aiofiles
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 import chardet
@@ -202,9 +200,9 @@ class KnowledgeService:
         allowed = ['pdf', 'doc', 'docx', 'txt', 'md']
         return ext in allowed
 
-    async def upload_document(
+    def upload_document(
         self,
-        file: UploadFile,
+        file: Any,
         user_id: str,
         title: Optional[str] = None,
         description: Optional[str] = None
@@ -249,14 +247,14 @@ class KnowledgeService:
             print(f"[DEBUG] 文档ID: {doc_id}, 保存路径: {file_path}")
 
             # 保存文件
-            content = await file.read()
-            async with aiofiles.open(file_path, 'wb') as f:
-                await f.write(content)
+            content = file.read()
+            with open(file_path, 'wb') as f:
+                f.write(content)
 
             print(f"[DEBUG] 文件保存成功")
 
             # 提取文本
-            text_content = await self._extract_text(str(file_path), ext)
+            text_content = self._extract_text(str(file_path), ext)
 
             print(f"[DEBUG] 文本提取成功，长度: {len(text_content)}")
 
@@ -291,8 +289,8 @@ class KnowledgeService:
             if knowledge_retriever.available:
                 try:
                     print(f"[DEBUG] 开始添加文档到向量数据库")
-                    await knowledge_retriever.delete_by_metadata({"doc_id": doc_id}, "knowledge_base")
-                    await knowledge_retriever.add_documents(documents, "knowledge_base")
+                    knowledge_retriever.delete_by_metadata({"doc_id": doc_id}, "knowledge_base")
+                    knowledge_retriever.add_documents(documents, "knowledge_base")
                     print(f"[DEBUG] 文档添加到向量数据库成功")
                     indexed = True
                 except Exception as e:
@@ -337,7 +335,7 @@ class KnowledgeService:
             traceback.print_exc()
             raise
 
-    async def sync_document_to_vector_store(
+    def sync_document_to_vector_store(
         self,
         doc_id: str,
         *,
@@ -360,7 +358,7 @@ class KnowledgeService:
         description = meta.get("description", "")
         uploaded_by = meta.get("uploaded_by", "system_reindex")
 
-        text_content = await self._extract_text(str(file_path), file_type)
+        text_content = self._extract_text(str(file_path), file_type)
         if not text_content.strip():
             raise ValueError(f"无法从文件中提取文本: {file_name}")
 
@@ -370,9 +368,9 @@ class KnowledgeService:
 
         existing_chunk_ids = list(meta.get("chunk_ids", []))
         if existing_chunk_ids:
-            await knowledge_retriever.delete_documents(existing_chunk_ids, "knowledge_base")
+            knowledge_retriever.delete_documents(existing_chunk_ids, "knowledge_base")
         else:
-            await knowledge_retriever.delete_by_metadata({"doc_id": doc_id}, "knowledge_base")
+            knowledge_retriever.delete_by_metadata({"doc_id": doc_id}, "knowledge_base")
 
         documents = self._build_documents(
             doc_id=doc_id,
@@ -383,7 +381,7 @@ class KnowledgeService:
             title=title,
             description=description,
         )
-        chunk_ids = await knowledge_retriever.add_documents(documents, "knowledge_base")
+        chunk_ids = knowledge_retriever.add_documents(documents, "knowledge_base")
 
         self._upsert_metadata(
             doc_id=doc_id,
@@ -405,7 +403,7 @@ class KnowledgeService:
             "file_name": file_name,
         }
 
-    async def reindex_documents(self, force: bool = False) -> Dict[str, Any]:
+    def reindex_documents(self, force: bool = False) -> Dict[str, Any]:
         """Backfill existing uploaded documents into the vector store."""
         if not knowledge_retriever.available:
             return {
@@ -432,7 +430,7 @@ class KnowledgeService:
                 continue
 
             try:
-                await self.sync_document_to_vector_store(doc_id, file_path=file_path, force=force)
+                self.sync_document_to_vector_store(doc_id, file_path=file_path, force=force)
                 indexed_count += 1
             except Exception as exc:
                 failed_count += 1
@@ -449,22 +447,22 @@ class KnowledgeService:
             "failures": failures,
         }
 
-    async def _extract_text(self, file_path: str, ext: str) -> str:
+    def _extract_text(self, file_path: str, ext: str) -> str:
         """从文件提取文本"""
         try:
             if ext == 'pdf':
-                return await self._extract_pdf_text(file_path)
+                return self._extract_pdf_text(file_path)
             elif ext in ['doc', 'docx']:
-                return await self._extract_docx_text(file_path)
+                return self._extract_docx_text(file_path)
             elif ext in ['txt', 'md']:
-                return await self._extract_txt_text(file_path)
+                return self._extract_txt_text(file_path)
             else:
                 return ""
         except Exception as e:
             print(f"提取文本失败：{e}")
             return ""
 
-    async def _extract_pdf_text(self, file_path: str) -> str:
+    def _extract_pdf_text(self, file_path: str) -> str:
         """从PDF提取文本"""
         reader = PdfReader(file_path)
         text_parts = []
@@ -474,7 +472,7 @@ class KnowledgeService:
                 text_parts.append(text)
         return "\n".join(text_parts)
 
-    async def _extract_docx_text(self, file_path: str) -> str:
+    def _extract_docx_text(self, file_path: str) -> str:
         """从Word文档提取文本"""
         doc = DocxDocument(file_path)
         text_parts = []
@@ -483,7 +481,7 @@ class KnowledgeService:
                 text_parts.append(para.text)
         return "\n".join(text_parts)
 
-    async def _extract_txt_text(self, file_path: str) -> str:
+    def _extract_txt_text(self, file_path: str) -> str:
         """从文本文件提取内容"""
         # 检测编码
         with open(file_path, 'rb') as f:
@@ -504,7 +502,7 @@ class KnowledgeService:
 
         return [chunk.page_content for chunk in chunks]
 
-    async def delete_document(self, doc_id: str) -> bool:
+    def delete_document(self, doc_id: str) -> bool:
         """删除知识库文档"""
         try:
             # 从向量数据库删除
@@ -512,9 +510,9 @@ class KnowledgeService:
                 meta = self.metadata.get(doc_id, {})
                 chunk_ids = meta.get("chunk_ids", [])
                 if chunk_ids:
-                    await knowledge_retriever.delete_documents(chunk_ids, "knowledge_base")
+                    knowledge_retriever.delete_documents(chunk_ids, "knowledge_base")
                 else:
-                    await knowledge_retriever.delete_by_metadata({"doc_id": doc_id}, "knowledge_base")
+                    knowledge_retriever.delete_by_metadata({"doc_id": doc_id}, "knowledge_base")
 
             # 删除文件
             for ext in ['pdf', 'doc', 'docx', 'txt', 'md']:
@@ -533,7 +531,7 @@ class KnowledgeService:
             print(f"删除文档失败：{e}")
             return False
 
-    async def list_documents(self) -> List[Dict[str, Any]]:
+    def list_documents(self) -> List[Dict[str, Any]]:
         """列出所有知识库文档"""
         try:
             print(f"[DEBUG] 列出文档，目录: {self.upload_dir}")

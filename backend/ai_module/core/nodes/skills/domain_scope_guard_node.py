@@ -33,7 +33,7 @@ class DomainScopeGuardNode(BaseNode):
         return "当前业务"
 
     def _supported_scope_text(self) -> str:
-        base_scope = ["问答", "项目推荐", "购买指导"]
+        base_scope = ["问答", "茶品推荐", "购买指导"]
         if self.runtime is None or not hasattr(self.runtime, "get_business_info"):
             return "、".join(base_scope + ["商品咨询", "订单查询", "售后服务"])
 
@@ -78,9 +78,9 @@ class DomainScopeGuardNode(BaseNode):
                 parts.append(f"上一轮助手说：{last_assistant[:80]}")
         return "；".join(parts) if parts else "用户刚进入业务咨询"
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         business_name = self._business_name(state)
-        state["response"] = await compose_out_of_scope_reply(
+        state["response"] = compose_out_of_scope_reply(
             state.get("user_message", ""),
             self._redirect_text(state, business_name),
             llm=self.llm,

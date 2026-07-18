@@ -1,16 +1,13 @@
 <template>
-  <AppLayout>
     <div class="tickets-page container">
       <div class="state-card">
-        <strong>工单模块已下线</strong>
-        <p>请使用 AI 助手或售后服务入口处理问题。</p>
+        <strong>服务工单已整合至智能客服</strong>
+        <p>请前往智能客服提交选茶、订单物流或售后问题，系统会保留完整咨询记录。</p>
       </div>
     </div>
-  </AppLayout>
 </template>
 
 <script setup lang="ts">
-import AppLayout from '@/components/AppLayout.vue'
 </script>
 
 <style scoped>

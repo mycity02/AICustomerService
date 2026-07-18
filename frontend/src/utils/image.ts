@@ -1,9 +1,9 @@
 const PALETTES = [
-  { start: '#153042', end: '#0f766e', accent: '#f97316' },
-  { start: '#1f3c88', end: '#14b8a6', accent: '#f59e0b' },
-  { start: '#4c1d95', end: '#7c3aed', accent: '#f97316' },
-  { start: '#0f766e', end: '#115e59', accent: '#fb7185' },
-  { start: '#7c2d12', end: '#ea580c', accent: '#22c55e' }
+  { start: '#173f35', end: '#2f6b4f', accent: '#d6a85f' },
+  { start: '#355640', end: '#789262', accent: '#ead9b2' },
+  { start: '#5a392b', end: '#9b6b43', accent: '#d7b46a' },
+  { start: '#254c3c', end: '#507b55', accent: '#c68a4a' },
+  { start: '#6b4b32', end: '#b07a47', accent: '#8aa06a' }
 ]
 
 function pickPalette(seedText: string) {
@@ -21,7 +21,7 @@ function escapeXml(text: string) {
 }
 
 function normalizeTitle(title?: string) {
-  const raw = title?.trim() || 'AI 商品'
+  const raw = title?.trim() || '云岫好茶'
   return raw.length > 28 ? `${raw.slice(0, 28)}...` : raw
 }
 
@@ -52,10 +52,10 @@ export function buildProductPlaceholder(title?: string) {
       <circle cx="678" cy="116" r="116" fill="${palette.accent}" opacity="0.18" />
       <circle cx="118" cy="500" r="138" fill="#ffffff" opacity="0.08" />
       <rect x="58" y="56" width="132" height="42" rx="21" fill="#ffffff" opacity="0.12" />
-      <text x="82" y="84" fill="#ffffff" opacity="0.82" font-family="Manrope, Noto Sans SC, sans-serif" font-size="22" font-weight="800">AI COMMERCE</text>
+      <text x="82" y="84" fill="#ffffff" opacity="0.82" font-family="Manrope, Noto Sans SC, sans-serif" font-size="22" font-weight="800">TEA SELECT</text>
       <text x="58" y="352" fill="#ffffff" opacity="0.92" font-family="Manrope, Noto Sans SC, sans-serif" font-size="168" font-weight="800">${escapeXml(monogram)}</text>
       <text x="58" y="452" fill="#ffffff" opacity="0.92" font-family="Manrope, Noto Sans SC, sans-serif" font-size="42" font-weight="700">${escapeXml(safeTitle)}</text>
-      <text x="58" y="500" fill="#ffffff" opacity="0.72" font-family="Manrope, Noto Sans SC, sans-serif" font-size="24" font-weight="500">Preview unavailable, using generated cover</text>
+      <text x="58" y="500" fill="#ffffff" opacity="0.72" font-family="Manrope, Noto Sans SC, sans-serif" font-size="24" font-weight="500">云岫茶坊 · 严选茶品</text>
     </svg>
   `
 

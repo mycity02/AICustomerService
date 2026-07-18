@@ -1,19 +1,18 @@
-import asyncio
 from database.connection import get_db_context
 from database.models import User, Product, UserBrowseHistory
 from sqlalchemy import select
 import uuid
 
-async def main():
-    async with get_db_context() as db:
-        user_result = await db.execute(select(User).limit(1))
+def main():
+    with get_db_context() as db:
+        user_result = db.execute(select(User).limit(1))
         user = user_result.scalars().first()
         if not user:
             print('没有用户')
             return
         print(f'用户: {user.id} - {user.username}')
         
-        product_result = await db.execute(select(Product).limit(5))
+        product_result = db.execute(select(Product).limit(5))
         products = product_result.scalars().all()
         print(f'商品数量: {len(products)}')
         
@@ -27,7 +26,7 @@ async def main():
             db.add(browse)
             print(f'添加浏览: {p.title[:20]}...')
         
-        await db.commit()
+        db.commit()
         print('完成!')
 
-asyncio.run(main())
+main()

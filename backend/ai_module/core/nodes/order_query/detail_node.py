@@ -7,5 +7,5 @@ from .base_step_node import OrderQueryStepNode
 
 
 class OrderQueryDetailNode(OrderQueryStepNode):
-    async def execute(self, state: ConversationState) -> ConversationState:
-        return await self.service.handle_order_detail(state)
+    def execute(self, state: ConversationState) -> ConversationState:
+        return self.service.handle_order_detail(state)

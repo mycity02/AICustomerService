@@ -1,5 +1,13 @@
 <template>
   <div class="orders-page page-shell container">
+    <section class="system-page-intro">
+      <div class="system-page-intro-copy">
+        <span class="system-page-kicker">交易与物流</span>
+        <h1>茶品订单</h1>
+        <p>统一查看茶品购买记录、支付状态与物流进度，并可继续发起售后咨询。</p>
+      </div>
+      <span class="system-page-metric">共 {{ total }} 笔订单</span>
+    </section>
     <section class="filter-strip section-card">
       <button
         v-for="tab in tabs"
@@ -16,7 +24,7 @@
     <section v-if="loading" class="state-card section-card">
       <div class="loader"></div>
       <strong>正在读取订单列表</strong>
-      <p>状态、商品信息与金额会一起同步。</p>
+      <p>正在同步订单状态、茶品信息与支付金额。</p>
     </section>
 
     <section v-else-if="orders.length === 0" class="state-card section-card">
@@ -24,8 +32,8 @@
         <el-icon><Document /></el-icon>
       </div>
       <strong>当前筛选下没有订单</strong>
-      <p>可以切换状态标签，或者先去商品中心完成购买。</p>
-      <button class="accent-button" type="button" @click="router.push('/products')">去看商品</button>
+      <p>可以切换订单状态，或先去茶品商城挑选合适的茶叶。</p>
+      <button class="accent-button" type="button" @click="router.push('/products')">选购茶品</button>
     </section>
 
     <section v-else class="orders-list">
@@ -199,7 +207,7 @@ async function handleCancel(orderId: string) {
 
 async function handleComplete(orderId: string) {
   try {
-    await ElMessageBox.confirm('确认已经收到交付内容吗？', '确认收货', {
+    await ElMessageBox.confirm('确认已经收到茶叶商品吗？', '确认收货', {
       confirmButtonText: '确认收货',
       cancelButtonText: '再看看',
       type: 'info'

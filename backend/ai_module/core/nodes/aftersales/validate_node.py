@@ -12,7 +12,7 @@ class AftersalesValidateNode(BaseNode):
         super().__init__()
         self.default_step = default_step
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         flow = state.get("aftersales_flow") or {}
         step = flow.get("step") or self.default_step
         state["aftersales_flow"] = {**flow, "step": step}

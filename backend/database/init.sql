@@ -1,4 +1,4 @@
--- AI客服系统数据库初始化脚本
+-- 云岫茶坊 AI 茶叶销售系统数据库初始化脚本
 
 -- 创建数据库（如果不存在）
 CREATE DATABASE IF NOT EXISTS ai_customer_service DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
@@ -375,27 +375,36 @@ INSERT INTO users (id, username, password_hash, email, role, is_active) VALUES
 (UUID(), 'seller2', '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5GyYzS.sC9jWu', 'seller2@example.com', 'user', TRUE)
 ON DUPLICATE KEY UPDATE username=username;
 
--- 插入商品分类
+-- 插入茶叶商品分类
 INSERT INTO categories (id, name, parent_id, description, icon, sort_order) VALUES
-(UUID(), '计算机类', NULL, '计算机相关毕业设计', 'computer', 1),
-(UUID(), '电子类', NULL, '电子工程相关毕业设计', 'electronics', 2),
-(UUID(), '管理类', NULL, '管理系统相关毕业设计', 'management', 3)
+(UUID(), '绿茶', NULL, '清香鲜爽、注重嫩度与时令的非发酵茶', 'leaf', 1),
+(UUID(), '红茶', NULL, '香甜醇和、适合日常饮用与礼赠的全发酵茶', 'cup', 2),
+(UUID(), '乌龙茶', NULL, '香气层次丰富、滋味醇厚的半发酵茶', 'mountain', 3),
+(UUID(), '白茶', NULL, '工艺自然、毫香清甜的轻微发酵茶', 'sunny', 4),
+(UUID(), '普洱茶', NULL, '越陈越香、口感醇滑的后发酵茶', 'collection', 5),
+(UUID(), '花茶', NULL, '茶香与花香融合、清雅怡人的再加工茶', 'flower', 6)
 ON DUPLICATE KEY UPDATE name=name;
 
 -- 获取分类ID（用于插入商品）
-SET @cat_computer = (SELECT id FROM categories WHERE name = '计算机类' LIMIT 1);
-SET @cat_electronics = (SELECT id FROM categories WHERE name = '电子类' LIMIT 1);
-SET @cat_management = (SELECT id FROM categories WHERE name = '管理类' LIMIT 1);
+SET @cat_green = (SELECT id FROM categories WHERE name = '绿茶' LIMIT 1);
+SET @cat_black = (SELECT id FROM categories WHERE name = '红茶' LIMIT 1);
+SET @cat_oolong = (SELECT id FROM categories WHERE name = '乌龙茶' LIMIT 1);
+SET @cat_white = (SELECT id FROM categories WHERE name = '白茶' LIMIT 1);
+SET @cat_puer = (SELECT id FROM categories WHERE name = '普洱茶' LIMIT 1);
+SET @cat_flower = (SELECT id FROM categories WHERE name = '花茶' LIMIT 1);
 
 -- 获取卖家ID
 SET @seller1_id = (SELECT id FROM users WHERE username = 'seller1' LIMIT 1);
 SET @seller2_id = (SELECT id FROM users WHERE username = 'seller2' LIMIT 1);
 
--- 插入测试商品
+-- 插入茶叶测试商品（价格单位：分）
 INSERT INTO products (id, seller_id, category_id, title, description, price, original_price, cover_image, tech_stack, difficulty, status, view_count, sales_count, rating, review_count) VALUES
-(UUID(), @seller1_id, @cat_computer, '基于Vue3的在线商城系统', '完整的电商平台，包含前后端代码、数据库设计、部署文档。技术栈：Vue3 + TypeScript + FastAPI + MySQL', 299.00, 399.00, '/uploads/products/mall-cover.jpg', '["Vue3", "TypeScript", "FastAPI", "MySQL"]', 'medium', 'published', 1234, 156, 4.8, 89),
-(UUID(), @seller1_id, @cat_computer, 'Python数据分析系统', '基于Python的数据分析平台，包含数据采集、清洗、可视化等功能。技术栈：Python + Pandas + Matplotlib + Django', 199.00, 299.00, '/uploads/products/data-analysis-cover.jpg', '["Python", "Pandas", "Matplotlib", "Django"]', 'easy', 'published', 856, 98, 4.6, 67),
-(UUID(), @seller2_id, @cat_computer, 'React Native移动应用', '跨平台移动应用开发，包含iOS和Android版本。技术栈：React Native + Redux + Node.js', 399.00, 499.00, '/uploads/products/mobile-app-cover.jpg', '["React Native", "Redux", "Node.js"]', 'hard', 'published', 2341, 234, 4.9, 178),
-(UUID(), @seller2_id, @cat_management, '企业人事管理系统', '完整的人事管理系统，包含员工管理、考勤、薪资等模块。技术栈：Spring Boot + Vue + MySQL', 249.00, 349.00, '/uploads/products/hr-system-cover.jpg', '["Spring Boot", "Vue", "MySQL"]', 'medium', 'published', 1567, 123, 4.7, 95),
-(UUID(), @seller1_id, @cat_electronics, '智能家居控制系统', '基于物联网的智能家居系统，包含硬件设计和软件开发。技术栈：Arduino + Python + MQTT', 349.00, 449.00, '/uploads/products/smart-home-cover.jpg', '["Arduino", "Python", "MQTT"]', 'hard', 'published', 987, 67, 4.5, 45)
+(UUID(), @seller1_id, @cat_green, '明前特级西湖龙井 250g', '产自浙江杭州核心产区，豆香清雅，茶汤嫩绿明亮，入口鲜爽回甘。建议使用85℃左右水温冲泡。', 26800, 32800, NULL, '["浙江杭州", "豆香", "鲜爽", "炒青绿茶"]', 'easy', 'published', 1834, 326, 490, 186),
+(UUID(), @seller1_id, @cat_green, '洞庭碧螺春一级春茶 250g', '产自江苏苏州太湖产区，花果香明显，滋味鲜醇柔和，适合偏爱清香型绿茶的顾客。', 19800, 24800, NULL, '["江苏苏州", "花果香", "鲜醇", "卷曲绿茶"]', 'easy', 'published', 1260, 218, 475, 124),
+(UUID(), @seller2_id, @cat_black, '武夷金骏眉特级红茶 250g', '精选福建武夷山原料制作，蜜香与花香协调，滋味甘醇顺滑，适合自饮或礼赠。', 32800, 39800, NULL, '["福建武夷山", "蜜香", "甘醇", "全发酵"]', 'medium', 'published', 2350, 408, 492, 236),
+(UUID(), @seller2_id, @cat_oolong, '武夷山大红袍岩茶 250g', '焙火香沉稳，茶汤橙黄明亮，入口醇厚并带有明显岩韵，适合喜欢浓郁耐泡口感的茶友。', 23800, 29800, NULL, '["武夷岩茶", "焙火香", "岩韵", "半发酵"]', 'hard', 'published', 1988, 305, 486, 175),
+(UUID(), @seller1_id, @cat_oolong, '安溪铁观音清香型 250g', '产自福建安溪，兰花香清晰，茶汤黄绿明亮，滋味清鲜并带回甘。', 16800, 21800, NULL, '["福建安溪", "兰花香", "清鲜", "半发酵"]', 'medium', 'published', 1568, 287, 478, 146),
+(UUID(), @seller1_id, @cat_white, '福鼎白牡丹白茶 300g', '选用福建福鼎春季原料，芽叶舒展，毫香与清甜感突出，茶汤柔和。', 21800, 26800, NULL, '["福建福鼎", "毫香", "清甜", "轻微发酵"]', 'easy', 'published', 1426, 196, 481, 118),
+(UUID(), @seller2_id, @cat_puer, '新会陈皮普洱熟茶 357g', '云南普洱熟茶与新会陈皮搭配，陈香与柑香协调，茶汤红浓醇滑。', 29800, 36800, NULL, '["云南勐海", "新会陈皮", "陈香", "后发酵"]', 'hard', 'published', 2248, 364, 488, 203),
+(UUID(), @seller1_id, @cat_flower, '横州茉莉银针花茶 250g', '选用广西横州茉莉鲜花多次窨制，花香鲜灵持久，茶汤清亮柔和。', 13800, 17800, NULL, '["广西横州", "茉莉花香", "清雅", "多次窨制"]', 'easy', 'published', 1186, 246, 472, 132)
 ON DUPLICATE KEY UPDATE title=title;

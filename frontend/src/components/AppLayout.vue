@@ -8,7 +8,7 @@
           <div class="logo-icon">
             <el-icon><ShoppingBag /></el-icon>
           </div>
-          <span class="logo-text">AI商城</span>
+          <span class="logo-text">云岫茶坊</span>
         </router-link>
 
         <!-- 搜索栏 -->
@@ -16,7 +16,7 @@
           <input
             v-model="searchKeyword"
             type="text"
-            placeholder="搜索商品、项目..."
+            placeholder="搜索茶类、产地、香型或商品..."
             @keyup.enter="handleSearch"
           />
           <button class="search-btn" @click="handleSearch">
@@ -26,23 +26,23 @@
 
         <!-- 导航菜单 -->
         <nav class="header-nav">
-          <router-link to="/products" class="nav-link">商品</router-link>
+          <router-link to="/products" class="nav-link">茶品商城</router-link>
           <router-link to="/chat" class="nav-link nav-link-ai">
             <el-icon><ChatDotRound /></el-icon>
-            <span>AI助手</span>
+            <span>智能客服</span>
           </router-link>
         </nav>
 
         <!-- 用户操作区 -->
         <div class="header-actions">
-          <router-link to="/favorites" class="action-btn" title="收藏">
+          <router-link to="/favorites" class="action-btn" title="我的收藏">
             <el-icon><Star /></el-icon>
           </router-link>
-          <router-link to="/cart" class="action-btn cart-btn" title="购物车">
+          <router-link to="/cart" class="action-btn cart-btn" title="茶品购物车">
             <el-icon><ShoppingCart /></el-icon>
             <span v-if="cartCount > 0" class="cart-badge">{{ cartCount }}</span>
           </router-link>
-          <router-link to="/orders" class="action-btn" title="订单">
+          <router-link to="/orders" class="action-btn" title="茶品订单">
             <el-icon><Document /></el-icon>
           </router-link>
           
@@ -93,11 +93,11 @@
         <nav class="mobile-nav">
           <router-link to="/products" class="mobile-nav-link" @click="mobileMenuOpen = false">
             <el-icon><ShoppingBag /></el-icon>
-            <span>商品列表</span>
+            <span>茶品商城</span>
           </router-link>
           <router-link to="/chat" class="mobile-nav-link" @click="mobileMenuOpen = false">
             <el-icon><ChatDotRound /></el-icon>
-            <span>AI助手</span>
+            <span>智能客服</span>
           </router-link>
           <router-link to="/cart" class="mobile-nav-link" @click="mobileMenuOpen = false">
             <el-icon><ShoppingCart /></el-icon>
@@ -124,29 +124,29 @@
     <footer class="app-footer">
       <div class="footer-container">
         <div class="footer-section">
-          <h4>关于我们</h4>
-          <p>AI电商客服系统，为您提供智能购物体验</p>
+          <h4>关于平台</h4>
+          <p>融合精选茶品、智能选茶、订单物流与售后服务的一站式茶叶销售系统。</p>
         </div>
         <div class="footer-section">
           <h4>客户服务</h4>
-          <router-link to="/chat">AI助手</router-link>
+          <router-link to="/chat">智能客服</router-link>
           <router-link to="/refunds">售后服务</router-link>
           <router-link to="/orders">订单追踪</router-link>
         </div>
         <div class="footer-section">
-          <h4>购物指南</h4>
-          <router-link to="/products">浏览商品</router-link>
-          <router-link to="/cart">购物车</router-link>
-          <router-link to="/orders">订单查询</router-link>
+          <h4>平台服务</h4>
+          <router-link to="/products">选购茶品</router-link>
+          <router-link to="/cart">茶品购物车</router-link>
+          <router-link to="/orders">订单管理</router-link>
         </div>
       </div>
       <div class="footer-bottom">
-        <p>© 2024 AI电商客服系统. All rights reserved.</p>
+        <p>© 2026 云岫茶坊 · AI 茶叶销售与智能导购系统</p>
       </div>
     </footer>
 
-    <!-- AI助手悬浮按钮 -->
-    <router-link to="/chat" class="ai-float-btn" title="AI助手">
+    <!-- 智能客服悬浮按钮 -->
+    <router-link to="/chat" class="ai-float-btn" title="智能客服">
       <el-icon><ChatDotRound /></el-icon>
     </router-link>
   </div>
@@ -565,7 +565,7 @@ function handleLogout() {
   font-size: 13px;
 }
 
-/* AI助手悬浮按钮 */
+/* 智能客服悬浮按钮 */
 .ai-float-btn {
   position: fixed;
   right: var(--space-6);

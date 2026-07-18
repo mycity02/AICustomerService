@@ -1,18 +1,26 @@
 <template>
   <div class="favorites-page page-shell">
+    <section class="system-page-intro">
+      <div class="system-page-intro-copy">
+        <span class="system-page-kicker">我的珍藏</span>
+        <h1>茶品收藏</h1>
+        <p>集中保存感兴趣的茶品，方便后续比较产地、香型、口感与价格。</p>
+      </div>
+      <span class="system-page-metric">共 {{ total }} 个收藏</span>
+    </section>
     <section v-if="loading" class="state-card section-card">
       <div class="loader"></div>
       <strong>正在读取收藏列表</strong>
-      <p>稍后就会展示你的高意向项目。</p>
+      <p>正在同步收藏茶品及其最新价格。</p>
     </section>
 
     <section v-else-if="favorites.length === 0" class="state-card section-card">
       <div class="empty-illustration">
         <el-icon><Star /></el-icon>
       </div>
-      <strong>还没有收藏项目</strong>
-      <p>先去商品中心看看，把感兴趣的项目保存下来。</p>
-      <button class="accent-button" type="button" @click="router.push('/products')">去看商品</button>
+      <strong>暂时没有收藏茶品</strong>
+      <p>前往茶品商城逛逛，把感兴趣的好茶收藏到这里。</p>
+      <button class="accent-button" type="button" @click="router.push('/products')">选购茶品</button>
     </section>
 
     <section v-else class="favorites-grid">
@@ -27,7 +35,7 @@
 
         <div class="card-body">
           <div class="card-topline">
-            <span class="eyebrow">Saved Project</span>
+            <span class="eyebrow">已收藏茶品</span>
             <strong>{{ formatPrice(item.price) }}</strong>
           </div>
 
@@ -112,7 +120,7 @@ function changePage(page: number) {
 }
 
 function getPreview(text = '') {
-  return text.length > 88 ? `${text.slice(0, 88)}...` : text || '适合加入收藏后反复比较、咨询和下单。'
+  return text.length > 88 ? `${text.slice(0, 88)}...` : text || '可收藏后继续比较产地、香型、口感与价格。'
 }
 
 function formatPrice(value: number) {
@@ -139,7 +147,7 @@ async function addToCart(productId: string) {
 
 async function removeFavorite(productId: string) {
   try {
-    await ElMessageBox.confirm('确认取消收藏这个项目吗？', '取消收藏', {
+    await ElMessageBox.confirm('确认取消收藏这件茶品吗？', '取消收藏', {
       confirmButtonText: '确认',
       cancelButtonText: '取消',
       type: 'warning'

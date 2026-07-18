@@ -7,6 +7,6 @@ from .base_step_node import QAFlowStepNode
 
 
 class QAPrepareNode(QAFlowStepNode):
-    async def execute(self, state: ConversationState) -> ConversationState:
-        await self.service.prepare_messages(state)
+    def execute(self, state: ConversationState) -> ConversationState:
+        self.service.prepare_messages(state)
         return state

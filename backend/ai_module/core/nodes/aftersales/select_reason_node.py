@@ -9,7 +9,7 @@ from ai_module.core.nodes.aftersales.constants import REASON_OPTIONS, TYPE_LABEL
 class AftersalesSelectReasonNode(BaseNode):
     """Step 3: choose reason."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         flow_data = state.get("aftersales_flow") or {}
         refund_type = flow_data.get("refund_type", "refund_only")
         type_label = TYPE_LABELS.get(refund_type, "售后")

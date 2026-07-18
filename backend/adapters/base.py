@@ -23,7 +23,7 @@ class BusinessAdapter(ABC):
         self.api_key = config.get("api", {}).get("api_key", "")
     
     @abstractmethod
-    async def get_user_info(self, user_id: str) -> Dict[str, Any]:
+    def get_user_info(self, user_id: str) -> Dict[str, Any]:
         """
         获取用户信息
         
@@ -43,7 +43,7 @@ class BusinessAdapter(ABC):
         pass
     
     @abstractmethod
-    async def query_orders(self, user_id: str, filters: Optional[Dict] = None) -> List[Dict]:
+    def query_orders(self, user_id: str, filters: Optional[Dict] = None) -> List[Dict]:
         """
         查询订单
         
@@ -65,7 +65,7 @@ class BusinessAdapter(ABC):
         pass
     
     @abstractmethod
-    async def search_products(self, keyword: str, filters: Optional[Dict] = None) -> List[Dict]:
+    def search_products(self, keyword: str, filters: Optional[Dict] = None) -> List[Dict]:
         """
         搜索商品
         
@@ -88,7 +88,7 @@ class BusinessAdapter(ABC):
         pass
     
     @abstractmethod
-    async def create_ticket(self, user_id: str, ticket_data: Dict) -> Dict:
+    def create_ticket(self, user_id: str, ticket_data: Dict) -> Dict:
         """
         创建工单
         
@@ -122,7 +122,7 @@ class BusinessAdapter(ABC):
             "custom_intents": self.config.get("custom_intents", [])
         }
     
-    async def call_business_api(
+    def call_business_api(
         self,
         endpoint: str,
         method: str = "GET",
@@ -148,15 +148,15 @@ class BusinessAdapter(ABC):
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
         
-        async with httpx.AsyncClient() as client:
+        with httpx.Client() as client:
             if method == "GET":
-                response = await client.get(url, params=params, headers=headers)
+                response = client.get(url, params=params, headers=headers)
             elif method == "POST":
-                response = await client.post(url, json=data, headers=headers)
+                response = client.post(url, json=data, headers=headers)
             elif method == "PUT":
-                response = await client.put(url, json=data, headers=headers)
+                response = client.put(url, json=data, headers=headers)
             elif method == "DELETE":
-                response = await client.delete(url, headers=headers)
+                response = client.delete(url, headers=headers)
             else:
                 raise ValueError(f"Unsupported HTTP method: {method}")
             

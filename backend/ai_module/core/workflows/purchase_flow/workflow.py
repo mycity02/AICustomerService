@@ -30,23 +30,23 @@ class PurchaseFlowWorkflow(BaseWorkflow):
         self.fallback_node = fallback_node or PurchaseFallbackNode()
         self.step_nodes = build_step_nodes(self.service)
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         current = PurchaseFlowState.START
 
         while current != PurchaseFlowState.END:
             current = next_state(current)
             if current == PurchaseFlowState.VALIDATE_FLOW:
-                state = await self.validate_node.execute(state)
+                state = self.validate_node.execute(state)
             elif current == PurchaseFlowState.RESOLVE_STEP:
-                state = await self.route_node.execute(state)
+                state = self.route_node.execute(state)
             elif current == PurchaseFlowState.RUN_STEP_NODE:
                 node_key = state.get("_purchase_flow_node_key")
                 step_node = self.step_nodes.get(node_key)
                 if step_node is None:
                     logger.warning("Unknown purchase flow step route=%s", node_key)
-                    state = await self.fallback_node.execute(state)
+                    state = self.fallback_node.execute(state)
                 else:
-                    state = await step_node.execute(state)
+                    state = step_node.execute(state)
             elif current == PurchaseFlowState.CLEANUP:
                 state = cleanup_runtime_keys(state)
 

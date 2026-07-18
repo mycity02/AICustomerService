@@ -18,7 +18,7 @@ class UnsupportedCapabilityNode(BaseNode):
     """Respond safely when the user asks for a capability that is not enabled."""
 
     def _supported_scope_text(self) -> str:
-        base_scope = ["问答", "项目推荐", "购买指导"]
+        base_scope = ["问答", "茶品推荐", "购买指导"]
         if self.runtime is None or not hasattr(self.runtime, "get_business_info"):
             return "、".join(base_scope + ["商品咨询", "订单查询", "售后服务"])
 
@@ -36,7 +36,7 @@ class UnsupportedCapabilityNode(BaseNode):
                 deduped.append(label)
         return "、".join(deduped)
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         capability_label = state.get("unsupported_capability_label") or "这项业务"
         has_active_flow = bool(state.get("has_active_flow"))
         fallback_action = state.get("unsupported_capability_action")

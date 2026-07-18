@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 
 from ai_module.core.constants import DEFAULT_INTENT_RULES
 from ai_module.core.nodes.understanding.message_entry_node import MessageEntryNode
@@ -44,12 +44,11 @@ def _make_state(message: str, **overrides):
 
 
 class TestMessageEntryNode:
-    @pytest.mark.asyncio
-    async def test_without_active_flow_uses_global_intent_classifier(self):
+    def test_without_active_flow_uses_global_intent_classifier(self):
         node = MessageEntryNode()
         state = _make_state("帮我推荐几个 Java 项目")
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["entry_classifier"] == "global_intent"
         assert result["has_active_flow"] is False
@@ -57,9 +56,7 @@ class TestMessageEntryNode:
         assert result["domain_intent"] == "推荐"
         assert result["dialogue_act"] == "new_request"
         assert result["self_contained_request"] is True
-
-    @pytest.mark.asyncio
-    async def test_with_active_flow_uses_inflow_classifier_for_continuation(self):
+    def test_with_active_flow_uses_inflow_classifier_for_continuation(self):
         node = MessageEntryNode()
         state = _make_state(
             "800以内，Java的，简单点",
@@ -72,7 +69,7 @@ class TestMessageEntryNode:
             ],
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["entry_classifier"] == "inflow"
         assert result["has_active_flow"] is True
@@ -82,9 +79,7 @@ class TestMessageEntryNode:
         assert result["continue_previous_task"] is True
         assert result["slot_updates"]["budget_max"] == 800
         assert result["slot_updates"]["language"] == "Java"
-
-    @pytest.mark.asyncio
-    async def test_with_active_flow_switches_to_new_global_intent_when_user_changes_task(self):
+    def test_with_active_flow_switches_to_new_global_intent_when_user_changes_task(self):
         node = MessageEntryNode()
         state = _make_state(
             "查一下我的订单",
@@ -97,7 +92,7 @@ class TestMessageEntryNode:
             ],
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["entry_classifier"] == "inflow"
         assert result["has_active_flow"] is True
@@ -106,9 +101,7 @@ class TestMessageEntryNode:
         assert result["intent"] == "订单查询"
         assert result["domain_intent"] == "订单查询"
         assert result["continue_previous_task"] is False
-
-    @pytest.mark.asyncio
-    async def test_cart_question_switches_out_of_order_flow_instead_of_reusing_order_query(self):
+    def test_cart_question_switches_out_of_order_flow_instead_of_reusing_order_query(self):
         node = MessageEntryNode()
         state = _make_state(
             "购物车有东西吗",
@@ -121,7 +114,7 @@ class TestMessageEntryNode:
             ],
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["entry_classifier"] == "inflow"
         assert result["inflow_type"] == "switch_flow"
@@ -129,9 +122,7 @@ class TestMessageEntryNode:
         assert result["intent"] == "购物车查询"
         assert result["domain_intent"] == "购物车查询"
         assert result["continue_previous_task"] is False
-
-    @pytest.mark.asyncio
-    async def test_disabled_capability_in_active_flow_short_circuits_to_unsupported_route(self):
+    def test_disabled_capability_in_active_flow_short_circuits_to_unsupported_route(self):
         node = MessageEntryNode(runtime=_RuntimeStub(features={"coupon_system": False}))
         state = _make_state(
             "优惠券可以用吗",
@@ -141,7 +132,7 @@ class TestMessageEntryNode:
             pending_question="请选择您要咨询的订单",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["entry_classifier"] == "inflow"
         assert result["skill_route"] == "unsupported_capability"
@@ -151,9 +142,7 @@ class TestMessageEntryNode:
         assert result["resume_mode"] == "resume_exact"
         assert result["intent"] is None
         assert result["continue_previous_task"] is False
-
-    @pytest.mark.asyncio
-    async def test_out_of_domain_message_short_circuits_to_domain_scope_guard(self):
+    def test_out_of_domain_message_short_circuits_to_domain_scope_guard(self):
         node = MessageEntryNode()
         state = _make_state(
             "去新疆旅行",
@@ -163,7 +152,7 @@ class TestMessageEntryNode:
             pending_question="请选择您要咨询的订单",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["entry_classifier"] == "inflow"
         assert result["skill_route"] == "domain_scope_guard"
@@ -173,22 +162,18 @@ class TestMessageEntryNode:
         assert result["flow_relation"] == "interrupt"
         assert result["response_mode"] == "answer_then_resume"
         assert result["continue_previous_task"] is False
-
-    @pytest.mark.asyncio
-    async def test_out_of_domain_message_without_active_flow_short_circuits_before_intent(self):
+    def test_out_of_domain_message_without_active_flow_short_circuits_before_intent(self):
         node = MessageEntryNode()
         state = _make_state("去新疆旅行")
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["entry_classifier"] == "global_intent"
         assert result["skill_route"] == "domain_scope_guard"
         assert result["semantic_source"] == "domain_scope_guard"
         assert result["intent"] is None
         assert result["flow_relation"] == "no_flow"
-
-    @pytest.mark.asyncio
-    async def test_same_domain_self_contained_request_defers_to_inflow_llm(self):
+    def test_same_domain_self_contained_request_defers_to_inflow_llm(self):
         node = MessageEntryNode()
         state = _make_state(
             "我想去旅行",
@@ -201,7 +186,7 @@ class TestMessageEntryNode:
             ],
         )
 
-        async def fake_understanding(_state):
+        def fake_understanding(_state):
             _state["dialogue_act"] = "new_request"
             _state["domain_intent"] = "推荐"
             _state["self_contained_request"] = True
@@ -210,7 +195,7 @@ class TestMessageEntryNode:
             _state["understanding_confidence"] = 0.72
             return _state
 
-        async def fake_inflow_llm(*_args, **_kwargs):
+        def fake_inflow_llm(*_args, **_kwargs):
             return {
                 "inflow_type": "irrelevant",
                 "domain_intent": None,
@@ -222,14 +207,12 @@ class TestMessageEntryNode:
         node.inflow_understanding.execute = fake_understanding
         node._infer_inflow_with_llm = fake_inflow_llm
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["inflow_type"] == "irrelevant"
         assert result["flow_relation"] == "interrupt"
         assert result["continue_previous_task"] is False
-
-    @pytest.mark.asyncio
-    async def test_irrelevant_message_does_not_soft_switch_to_global_qa(self):
+    def test_irrelevant_message_does_not_soft_switch_to_global_qa(self):
         node = MessageEntryNode()
         state = _make_state(
             "中东地区怎么打仗了",
@@ -239,7 +222,7 @@ class TestMessageEntryNode:
             pending_question="这些里你更喜欢哪一个？",
         )
 
-        async def fake_understanding(_state):
+        def fake_understanding(_state):
             _state["dialogue_act"] = "unclear"
             _state["domain_intent"] = None
             _state["self_contained_request"] = False
@@ -248,28 +231,26 @@ class TestMessageEntryNode:
             _state["understanding_confidence"] = 0.35
             return _state
 
-        async def fake_intent(_state):
+        def fake_intent(_state):
             _state["intent"] = "问答"
             _state["confidence"] = 0.92
             return _state
 
-        async def fake_inflow_llm(*_args, **_kwargs):
+        def fake_inflow_llm(*_args, **_kwargs):
             return None
 
         node.inflow_understanding.execute = fake_understanding
         node.global_intent_classifier.execute = fake_intent
         node._infer_inflow_with_llm = fake_inflow_llm
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["skill_route"] == "domain_scope_guard"
         assert result["semantic_source"] == "domain_scope_guard"
         assert result["intent"] is None
         assert result["flow_relation"] == "interrupt"
         assert result["continue_previous_task"] is False
-
-    @pytest.mark.asyncio
-    async def test_out_of_domain_question_short_circuits_before_related_question_fallback(self):
+    def test_out_of_domain_question_short_circuits_before_related_question_fallback(self):
         node = MessageEntryNode()
         state = _make_state(
             "中东地区怎么打仗了",
@@ -279,7 +260,7 @@ class TestMessageEntryNode:
             pending_question="这些里你更喜欢哪一个？",
         )
 
-        async def fake_understanding(_state):
+        def fake_understanding(_state):
             _state["dialogue_act"] = "unclear"
             _state["domain_intent"] = None
             _state["self_contained_request"] = False
@@ -288,7 +269,7 @@ class TestMessageEntryNode:
             _state["understanding_confidence"] = 0.41
             return _state
 
-        async def fake_inflow_llm(*_args, **_kwargs):
+        def fake_inflow_llm(*_args, **_kwargs):
             return {
                 "inflow_type": "related_question",
                 "domain_intent": None,
@@ -297,7 +278,7 @@ class TestMessageEntryNode:
                 "confidence": 0.86,
             }
 
-        async def fake_intent(_state):
+        def fake_intent(_state):
             _state["intent"] = "问答"
             _state["confidence"] = 0.93
             return _state
@@ -306,7 +287,7 @@ class TestMessageEntryNode:
         node._infer_inflow_with_llm = fake_inflow_llm
         node.global_intent_classifier.execute = fake_intent
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["skill_route"] == "domain_scope_guard"
         assert result["semantic_source"] == "domain_scope_guard"

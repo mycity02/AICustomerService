@@ -5,12 +5,14 @@ const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'Login',
-    component: () => import('@/views/Login.vue')
+    component: () => import('@/views/Login.vue'),
+    meta: { standalone: true }
   },
   {
     path: '/register',
     name: 'Register',
-    component: () => import('@/views/Register.vue')
+    component: () => import('@/views/Register.vue'),
+    meta: { standalone: true }
   },
   {
     path: '/',
@@ -57,7 +59,7 @@ const routes: RouteRecordRaw[] = [
     path: '/chat',
     name: 'Chat',
     component: () => import('@/views/Chat.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, standalone: true }
   },
   {
     path: '/knowledge',

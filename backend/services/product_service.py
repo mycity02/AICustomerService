@@ -2,7 +2,7 @@
 商品服务模块
 """
 from typing import List, Optional, Dict, Any
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, func, or_, and_
 from sqlalchemy.orm import joinedload, selectinload
 from database.models import Product, Category, ProductImage, ProductFile, ProductStatus, ProductDifficulty, User
@@ -14,10 +14,10 @@ from .product_knowledge_sync import product_knowledge_sync
 class ProductService:
     """商品服务类"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def create_product(
+    def create_product(
         self,
         seller_id: str,
         category_id: str,
@@ -47,18 +47,18 @@ class ProductService:
         )
         
         self.db.add(product)
-        await self.db.commit()
-        await self.db.refresh(product)
+        self.db.commit()
+        self.db.refresh(product)
         
         return product
     
-    async def update_product(
+    def update_product(
         self,
         product_id: str,
         **kwargs
     ) -> Optional[Product]:
         """更新商品"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product).where(Product.id == product_id)
         )
         product = result.scalar_one_or_none()
@@ -74,18 +74,18 @@ class ProductService:
                 setattr(product, key, value)
         
         product.updated_at = datetime.now()
-        await self.db.commit()
-        await self.db.refresh(product)
+        self.db.commit()
+        self.db.refresh(product)
         
         # 如果商品已发布，同步到知识库
         if product.status == ProductStatus.PUBLISHED:
-            await product_knowledge_sync.update_product_in_knowledge(self.db, product_id)
+            product_knowledge_sync.update_product_in_knowledge(self.db, product_id)
         
         return product
     
-    async def delete_product(self, product_id: str) -> bool:
+    def delete_product(self, product_id: str) -> bool:
         """删除商品"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product).where(Product.id == product_id)
         )
         product = result.scalar_one_or_none()
@@ -94,16 +94,16 @@ class ProductService:
             return False
         
         # 从知识库删除
-        await product_knowledge_sync.remove_product_from_knowledge(product_id)
+        product_knowledge_sync.remove_product_from_knowledge(product_id)
         
-        await self.db.delete(product)
-        await self.db.commit()
+        self.db.delete(product)
+        self.db.commit()
         
         return True
     
-    async def get_product(self, product_id: str, increment_view: bool = False) -> Optional[Dict[str, Any]]:
+    def get_product(self, product_id: str, increment_view: bool = False) -> Optional[Dict[str, Any]]:
         """获取商品详情"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product)
             .options(
                 joinedload(Product.seller),
@@ -122,11 +122,11 @@ class ProductService:
         
         if increment_view:
             product.view_count += 1
-            await self.db.commit()
+            self.db.commit()
         
         return product_dict
     
-    async def search_products(
+    def search_products(
         self,
         keyword: Optional[str] = None,
         category_id: Optional[str] = None,
@@ -182,7 +182,7 @@ class ProductService:
             filters.append(Product.seller_id == seller_id)
         
         if tech_stack:
-            # 技术栈匹配（JSON数组包含）
+            # 产地与风味标签匹配（底层字段名为 tech_stack，保持接口兼容）
             for tech in tech_stack:
                 filters.append(Product.tech_stack.contains(tech))
         
@@ -204,14 +204,14 @@ class ProductService:
         if filters:
             count_query = count_query.where(and_(*filters))
         
-        total_result = await self.db.execute(count_query)
+        total_result = self.db.execute(count_query)
         total = total_result.scalar()
         
         # 分页
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         products = result.scalars().all()
         
         return {
@@ -222,7 +222,7 @@ class ProductService:
             "total_pages": (total + page_size - 1) // page_size
         }
     
-    async def add_product_image(
+    def add_product_image(
         self,
         product_id: str,
         image_url: str,
@@ -237,12 +237,12 @@ class ProductService:
         )
         
         self.db.add(image)
-        await self.db.commit()
-        await self.db.refresh(image)
+        self.db.commit()
+        self.db.refresh(image)
         
         return image
     
-    async def add_product_file(
+    def add_product_file(
         self,
         product_id: str,
         file_name: str,
@@ -263,8 +263,8 @@ class ProductService:
         )
         
         self.db.add(file)
-        await self.db.commit()
-        await self.db.refresh(file)
+        self.db.commit()
+        self.db.refresh(file)
         
         return file
     
@@ -331,10 +331,10 @@ class ProductService:
 class CategoryService:
     """分类服务类"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def create_category(
+    def create_category(
         self,
         name: str,
         parent_id: Optional[str] = None,
@@ -353,12 +353,12 @@ class CategoryService:
         )
         
         self.db.add(category)
-        await self.db.commit()
-        await self.db.refresh(category)
+        self.db.commit()
+        self.db.refresh(category)
         
         return category
     
-    async def get_categories(
+    def get_categories(
         self,
         parent_id: Optional[str] = None,
         include_children: bool = False
@@ -371,14 +371,14 @@ class CategoryService:
         elif not include_children:
             query = query.where(Category.parent_id.is_(None))
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         categories = result.scalars().all()
         
         return [self._category_to_dict(c) for c in categories]
     
-    async def get_category(self, category_id: str) -> Optional[Dict[str, Any]]:
+    def get_category(self, category_id: str) -> Optional[Dict[str, Any]]:
         """获取分类详情"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Category)
             .options(joinedload(Category.children))
             .where(Category.id == category_id)

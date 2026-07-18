@@ -26,11 +26,11 @@ class WorkflowPortAdapter:
     def __getattr__(self, item: str) -> Any:
         return getattr(self._workflow, item)
 
-    async def process_message(self, **kwargs):
-        return await self._workflow.process_message(**kwargs)
+    def process_message(self, **kwargs):
+        return self._workflow.process_message(**kwargs)
 
-    async def process_message_stream(self, **kwargs):
-        async for event in self._workflow.process_message_stream(**kwargs):
+    def process_message_stream(self, **kwargs):
+        for event in self._workflow.process_message_stream(**kwargs):
             yield event
 
 

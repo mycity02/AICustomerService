@@ -40,7 +40,7 @@ class TicketPriority(str, enum.Enum):
 
 
 class ProductDifficulty(str, enum.Enum):
-    """商品难度枚举"""
+    """商品口感浓度枚举（字段名保持兼容）"""
     EASY = "easy"
     MEDIUM = "medium"
     HARD = "hard"
@@ -272,7 +272,7 @@ class AuditLog(Base):
 # ==================== 电商扩展模型 ====================
 
 class ProductDifficulty(str, enum.Enum):
-    """商品难度枚举"""
+    """商品口感浓度枚举（字段名保持兼容）"""
     EASY = "easy"
     MEDIUM = "medium"
     HARD = "hard"

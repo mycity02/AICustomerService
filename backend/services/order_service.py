@@ -2,7 +2,7 @@
 订单服务模块
 """
 from typing import List, Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, or_
 from sqlalchemy.orm import joinedload
 from database.models import Order, OrderItem, Product, CartItem, OrderStatus, ProductStatus
@@ -13,16 +13,16 @@ from datetime import datetime
 class OrderService:
     """订单服务类"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def create_order(self, buyer_id: str, product_ids: List[str]) -> Dict[str, Any]:
+    def create_order(self, buyer_id: str, product_ids: List[str]) -> Dict[str, Any]:
         """创建订单"""
         # 打印调试信息
         print(f"创建订单 - buyer_id: {buyer_id}, product_ids: {product_ids}")
         
         # 获取商品信息
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product).where(
                 and_(
                     Product.id.in_(product_ids),
@@ -74,11 +74,11 @@ class OrderService:
             self.db.add(order_item)
             order_items.append(order_item)
         
-        await self.db.commit()
-        await self.db.refresh(order)
+        self.db.commit()
+        self.db.refresh(order)
         
         # 从购物车删除已下单商品
-        result = await self.db.execute(
+        result = self.db.execute(
             select(CartItem).where(
                 and_(
                     CartItem.user_id == buyer_id,
@@ -88,9 +88,9 @@ class OrderService:
         )
         cart_items = result.scalars().all()
         for item in cart_items:
-            await self.db.delete(item)
+            self.db.delete(item)
         
-        await self.db.commit()
+        self.db.commit()
         
         return {
             "id": order.id,
@@ -112,7 +112,7 @@ class OrderService:
             ]
         }
     
-    async def get_order(self, order_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_order(self, order_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """获取订单详情"""
         query = select(Order).options(
             joinedload(Order.buyer),
@@ -122,7 +122,7 @@ class OrderService:
         if user_id:
             query = query.where(Order.buyer_id == user_id)
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         order = result.unique().scalar_one_or_none()
         
         if not order:
@@ -130,7 +130,7 @@ class OrderService:
         
         return self._order_to_dict(order)
 
-    async def get_order_by_no(
+    def get_order_by_no(
         self,
         order_no: str,
         user_id: Optional[str] = None
@@ -144,7 +144,7 @@ class OrderService:
         if user_id:
             query = query.where(Order.buyer_id == user_id)
 
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         order = result.unique().scalar_one_or_none()
 
         if not order:
@@ -156,7 +156,7 @@ class OrderService:
             data["buyer_phone"] = getattr(order.buyer, "phone", "")
         return data
 
-    async def list_orders(
+    def list_orders(
         self,
         user_id: Optional[str] = None,
         seller_id: Optional[str] = None,
@@ -189,7 +189,7 @@ class OrderService:
         count_query = select(Order)
         if filters:
             count_query = count_query.where(and_(*filters))
-        count_result = await self.db.execute(count_query)
+        count_result = self.db.execute(count_query)
         total = len(count_result.scalars().all())
         
         query = query.order_by(Order.created_at.desc())
@@ -198,7 +198,7 @@ class OrderService:
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         orders = result.unique().scalars().all()
         
         return {
@@ -209,14 +209,14 @@ class OrderService:
             "total_pages": (total + page_size - 1) // page_size
         }
     
-    async def update_order_status(
+    def update_order_status(
         self,
         order_id: str,
         status: str,
         user_id: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
         """更新订单状态"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Order).where(Order.id == order_id)
         )
         order = result.scalar_one_or_none()
@@ -238,26 +238,26 @@ class OrderService:
         elif status == "completed":
             order.completion_time = datetime.now()
             # 更新商品销量
-            result = await self.db.execute(
+            result = self.db.execute(
                 select(OrderItem).where(OrderItem.order_id == order_id)
             )
             items = result.scalars().all()
             for item in items:
-                product_result = await self.db.execute(
+                product_result = self.db.execute(
                     select(Product).where(Product.id == item.product_id)
                 )
                 product = product_result.scalar_one_or_none()
                 if product:
                     product.sales_count += 1
         
-        await self.db.commit()
-        await self.db.refresh(order)
+        self.db.commit()
+        self.db.refresh(order)
         
         return self._order_to_dict(order)
     
-    async def cancel_order(self, order_id: str, user_id: str) -> bool:
+    def cancel_order(self, order_id: str, user_id: str) -> bool:
         """取消订单"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Order).where(
                 and_(
                     Order.id == order_id,
@@ -275,7 +275,7 @@ class OrderService:
             raise ValueError("只能取消待支付的订单")
         
         order.status = OrderStatus.CANCELLED
-        await self.db.commit()
+        self.db.commit()
         
         return True
     

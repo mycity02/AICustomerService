@@ -1,11 +1,11 @@
 """
 商品知识库同步服务
-将商品信息同步到 Chroma 向量数据库，用于 AI 推荐和咨询
+将商品信息同步到 FAISS 向量数据库，用于 AI 推荐和咨询
 """
 from typing import List, Dict, Any
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select
-from database.models import Product, Review
+from database.models import Product, ProductStatus, Review
 from .knowledge_retriever import knowledge_retriever
 import json
 
@@ -13,9 +13,9 @@ import json
 class ProductKnowledgeSync:
     """商品知识库同步类"""
     
-    async def sync_product_to_knowledge(
+    def sync_product_to_knowledge(
         self,
-        db: AsyncSession,
+        db: Session,
         product_id: str
     ) -> bool:
         """
@@ -32,16 +32,16 @@ class ProductKnowledgeSync:
             return False
         
         # 获取商品信息
-        result = await db.execute(
+        result = db.execute(
             select(Product).where(Product.id == product_id)
         )
         product = result.scalar_one_or_none()
         
-        if not product or product.status != "published":
+        if not product or product.status != ProductStatus.PUBLISHED:
             return False
         
         # 获取商品评价
-        reviews_result = await db.execute(
+        reviews_result = db.execute(
             select(Review)
             .where(Review.product_id == product_id)
             .order_by(Review.rating.desc())
@@ -49,22 +49,25 @@ class ProductKnowledgeSync:
         )
         reviews = reviews_result.scalars().all()
         
-        # 构建商品文档内容
+        # 底层字段名保持兼容，对外知识文档使用茶叶销售语义。
+        difficulty = getattr(product.difficulty, "value", product.difficulty)
+        features = getattr(product, "features", None) or []
+        deliverables = getattr(product, "deliverables", None) or []
         content_parts = [
             f"商品名称：{product.title}",
             f"商品描述：{product.description}",
-            f"价格：¥{product.price}",
-            f"技术栈：{', '.join(product.tech_stack or [])}",
-            f"难度：{product.difficulty}",
-            f"评分：{product.rating}⭐",
+            f"价格：¥{product.price / 100:.2f}",
+            f"产地与风味标签：{', '.join(product.tech_stack or [])}",
+            f"口感浓度：{difficulty}",
+            f"评分：{product.rating / 100:.2f}⭐",
             f"销量：{product.sales_count}",
         ]
-        
-        if product.features:
-            content_parts.append(f"特色功能：{', '.join(product.features)}")
-        
-        if product.deliverables:
-            content_parts.append(f"交付内容：{', '.join(product.deliverables)}")
+
+        if features:
+            content_parts.append(f"茶品特点：{', '.join(features)}")
+
+        if deliverables:
+            content_parts.append(f"包装与配送：{', '.join(deliverables)}")
         
         # 添加评价摘要
         if reviews:
@@ -81,9 +84,9 @@ class ProductKnowledgeSync:
             "metadata": {
                 "product_id": product.id,
                 "title": product.title,
-                "price": float(product.price),
-                "difficulty": product.difficulty,
-                "rating": float(product.rating),
+                "price": product.price / 100,
+                "difficulty": difficulty,
+                "rating": product.rating / 100,
                 "sales_count": product.sales_count,
                 "tech_stack": json.dumps(product.tech_stack or [], ensure_ascii=False),
                 "category_id": product.category_id,
@@ -92,12 +95,13 @@ class ProductKnowledgeSync:
             }
         }
         
-        # 添加到向量数据库
-        await knowledge_retriever.add_documents([document], "product_catalog")
+        # 使用稳定文档 ID 实现可重复同步，避免重复向量。
+        knowledge_retriever.delete_document(document["id"], "product_catalog")
+        knowledge_retriever.add_documents([document], "product_catalog")
         
         return True
     
-    async def sync_all_products(self, db: AsyncSession) -> Dict[str, Any]:
+    def sync_all_products(self, db: Session) -> Dict[str, Any]:
         """
         同步所有已发布的商品到知识库
         
@@ -111,8 +115,8 @@ class ProductKnowledgeSync:
             return {"success": False, "message": "知识库不可用"}
         
         # 获取所有已发布的商品
-        result = await db.execute(
-            select(Product).where(Product.status == "published")
+        result = db.execute(
+            select(Product).where(Product.status == ProductStatus.PUBLISHED)
         )
         products = result.scalars().all()
         
@@ -121,7 +125,7 @@ class ProductKnowledgeSync:
         
         for product in products:
             try:
-                success = await self.sync_product_to_knowledge(db, product.id)
+                success = self.sync_product_to_knowledge(db, product.id)
                 if success:
                     success_count += 1
                 else:
@@ -137,7 +141,7 @@ class ProductKnowledgeSync:
             "failed_count": failed_count
         }
     
-    async def remove_product_from_knowledge(
+    def remove_product_from_knowledge(
         self,
         product_id: str
     ) -> bool:
@@ -154,7 +158,7 @@ class ProductKnowledgeSync:
             return False
         
         try:
-            await knowledge_retriever.delete_document(
+            knowledge_retriever.delete_document(
                 f"product_{product_id}",
                 "product_catalog"
             )
@@ -163,9 +167,9 @@ class ProductKnowledgeSync:
             print(f"删除商品知识库失败：{e}")
             return False
     
-    async def update_product_in_knowledge(
+    def update_product_in_knowledge(
         self,
-        db: AsyncSession,
+        db: Session,
         product_id: str
     ) -> bool:
         """
@@ -179,10 +183,10 @@ class ProductKnowledgeSync:
             是否成功
         """
         # 先删除旧数据
-        await self.remove_product_from_knowledge(product_id)
+        self.remove_product_from_knowledge(product_id)
         
         # 重新添加
-        return await self.sync_product_to_knowledge(db, product_id)
+        return self.sync_product_to_knowledge(db, product_id)
 
 
 # 全局实例

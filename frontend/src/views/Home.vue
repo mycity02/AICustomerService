@@ -1,30 +1,29 @@
 <template>
-  <AppLayout>
     <div class="home-page">
       <div class="container">
         <section class="hero">
           <div class="hero-content">
-            <span class="hero-tag">电商主会场</span>
-            <h1 class="hero-title">今日热卖与精选好物</h1>
-            <p class="hero-desc">从热门榜单到分品类选购，快速找到你想买的商品。</p>
+            <span class="hero-tag">云岫茶坊 · AI 茶叶销售系统</span>
+            <h1 class="hero-title">好茶甄选与智能导购，一站完成</h1>
+            <p class="hero-desc">按茶类、产地与香型挑选茶品，通过 AI 选茶顾问获得饮用场景、预算与冲泡建议。</p>
             <div class="hero-actions">
-              <router-link class="btn btn-primary" to="/products">立即逛商城</router-link>
-              <router-link class="btn btn-outline" to="/cart">查看购物车</router-link>
+              <router-link class="btn btn-primary" to="/products">进入茶品商城</router-link>
+              <router-link class="btn btn-outline" to="/chat">咨询智能客服</router-link>
             </div>
           </div>
           <div class="hero-panel">
-            <strong>购物优先流程</strong>
+            <strong>智能购茶流程</strong>
             <ul>
-              <li>按分类筛选商品</li>
-              <li>查看销量与评分排序</li>
-              <li>加入购物车快速结算</li>
+              <li>按茶类、产地与香型筛选茶品</li>
+              <li>通过 AI 顾问获得选茶与冲泡建议</li>
+              <li>统一管理订单、物流与售后进度</li>
             </ul>
           </div>
         </section>
 
         <section class="category-section">
           <div class="section-header">
-            <h2>热门分类</h2>
+            <h2>茶品分类</h2>
             <router-link to="/products" class="section-link">
               查看全部
               <el-icon><ArrowRight /></el-icon>
@@ -44,7 +43,7 @@
 
         <section class="product-section">
           <div class="section-header">
-            <h2>热销商品</h2>
+            <h2>人气茶品</h2>
             <router-link to="/products?sort_by=sales&order=desc" class="section-link">
               销量榜单
               <el-icon><ArrowRight /></el-icon>
@@ -90,8 +89,8 @@
           <router-link to="/chat" class="service-card">
             <el-icon><ChatDotRound /></el-icon>
             <div>
-              <strong>AI 导购助手</strong>
-              <p>选品建议、购买问题即时咨询</p>
+              <strong>AI 选茶顾问</strong>
+              <p>选茶推荐、风味对比与冲泡问题即时咨询</p>
             </div>
           </router-link>
           <router-link to="/refunds" class="service-card">
@@ -104,7 +103,6 @@
         </section>
       </div>
     </div>
-  </AppLayout>
 </template>
 
 <script setup lang="ts">
@@ -112,7 +110,6 @@ import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowRight, ChatDotRound, ShoppingCart, Document, RefreshLeft } from '@element-plus/icons-vue'
-import AppLayout from '@/components/AppLayout.vue'
 import { useProductStore } from '@/stores/product'
 import { useCartStore } from '@/stores/cart'
 import { handleImageFallback, resolveProductImage } from '@/utils/image'

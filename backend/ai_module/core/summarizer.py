@@ -93,7 +93,7 @@ class ConversationSummarizer:
         """
         return len(history) > self.trigger_threshold
 
-    async def summarize(self, history: list, existing_summary: str = "") -> dict:
+    def summarize(self, history: list, existing_summary: str = "") -> dict:
         """生成较早历史对话的摘要。
 
         会按照触发阈值拆分历史：
@@ -135,7 +135,7 @@ class ConversationSummarizer:
             existing_summary=existing_summary or "（无）",
             history_text=history_text,
         )
-        response = await self.llm.ainvoke(messages)
+        response = self.llm.invoke(messages)
         summary = response.content.strip()
 
         logger.info(

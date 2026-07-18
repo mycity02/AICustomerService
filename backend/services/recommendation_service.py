@@ -4,7 +4,7 @@
 """
 from typing import List, Dict, Any, Optional
 from sqlalchemy import select, and_, desc, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 import math
 
 from database.models import UserBrowseHistory, Product, Category
@@ -13,10 +13,10 @@ from database.models import UserBrowseHistory, Product, Category
 class RecommendationService:
     """个性化推荐服务"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def get_personalized_recommendations(
+    def get_personalized_recommendations(
         self,
         user_id: str,
         limit: int = 10,
@@ -29,11 +29,11 @@ class RecommendationService:
             desc(UserBrowseHistory.created_at)
         ).limit(30)
         
-        result = await self.db.execute(browse_query)
+        result = self.db.execute(browse_query)
         browse_records = result.scalars().all()
         
         if not browse_records:
-            return await self._get_popular_products(limit)
+            return self._get_popular_products(limit)
         
         tech_weights: Dict[str, float] = {}
         category_weights: Dict[str, int] = {}
@@ -41,7 +41,7 @@ class RecommendationService:
         
         for i, record in enumerate(browse_records):
             viewed_product_ids.add(record.product_id)
-            product = await self.db.get(Product, record.product_id)
+            product = self.db.get(Product, record.product_id)
             
             if not product:
                 continue
@@ -63,7 +63,7 @@ class RecommendationService:
             Product.status == "published"
         )
         
-        result = await self.db.execute(all_products_query)
+        result = self.db.execute(all_products_query)
         all_products = result.scalars().all()
         
         product_scores = []
@@ -136,7 +136,7 @@ class RecommendationService:
         
         return score
     
-    async def _get_popular_products(self, limit: int = 10) -> List[Dict[str, Any]]:
+    def _get_popular_products(self, limit: int = 10) -> List[Dict[str, Any]]:
         """获取热门商品（无浏览历史时使用）"""
         query = select(Product).where(
             Product.status == "published"
@@ -145,7 +145,7 @@ class RecommendationService:
             desc(Product.rating)
         ).limit(limit)
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         products = result.scalars().all()
         
         return [{
@@ -159,13 +159,13 @@ class RecommendationService:
             "tech_stack": p.tech_stack or []
         } for p in products]
     
-    async def get_similar_products(
+    def get_similar_products(
         self,
         product_id: str,
         limit: int = 5
     ) -> List[Dict[str, Any]]:
         """获取相似商品"""
-        product = await self.db.get(Product, product_id)
+        product = self.db.get(Product, product_id)
         
         if not product:
             return []
@@ -177,7 +177,7 @@ class RecommendationService:
             )
         )
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         all_products = result.scalars().all()
         
         scores = []

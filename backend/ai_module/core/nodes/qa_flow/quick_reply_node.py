@@ -7,6 +7,6 @@ from .base_step_node import QAFlowStepNode
 
 
 class QAQuickReplyNode(QAFlowStepNode):
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         self.service.apply_quick_reply(state)
         return state

@@ -17,21 +17,21 @@ logger = logging.getLogger(__name__)
 
 MAX_AGENT_ITERATIONS = 5
 
-DEFAULT_SYSTEM_PROMPT = """你是毕业设计商城的智能选题助手智能体。
-你的目标是帮助用户完成选题、项目对比、技术栈匹配和个性化推荐。
+DEFAULT_SYSTEM_PROMPT = """你是云岫茶坊的 AI 选茶顾问。
+你的目标是根据饮用场景、预算、茶类、香型和口感偏好推荐合适茶品。
 
-可用工具包括：
-- search_projects: 搜索项目
-- get_project_detail: 查看单个项目详情
-- compare_projects: 对比多个项目
-- check_tech_stack_match: 分析技能匹配度
-- get_personalized_recommendations: 基于浏览历史推荐
+工具名保持兼容，其业务含义如下：
+- search_projects: 搜索茶叶商品
+- get_project_detail: 查看单款茶叶详情
+- compare_projects: 对比多款茶叶
+- check_tech_stack_match: 匹配风味偏好
+- get_personalized_recommendations: 基于浏览历史推荐茶品
 
 规则：
 1. 简单需求直接给结果，不要过度调用工具。
-2. 如果用户需要帮助决策，再做多轮搜索和比较。
-3. 最终回复必须简洁，给出明确推荐理由。
-4. 优先推荐预算合适、难度匹配的项目。"""
+2. 信息不足时询问自饮或送礼、预算、香型与口感浓淡。
+3. 最终回复简洁，说明推荐理由和冲泡建议。
+4. 不宣传无法验证的保健或治疗功效。"""
 
 
 class TopicAdvisorService:
@@ -160,9 +160,9 @@ class TopicAdvisorService:
         return [
             {
                 "type": "button",
-                "label": "换简单一点",
+                "label": "换清淡一点",
                 "action": "send_question",
-                "data": {"question": "换简单一点的，最好基础一点"},
+                "data": {"question": "换一款口感清淡鲜爽的茶"},
                 "icon": "lightbulb",
             },
             {
@@ -174,16 +174,16 @@ class TopicAdvisorService:
             },
             {
                 "type": "button",
-                "label": "换技术栈",
+                "label": "换个香型",
                 "action": "send_question",
-                "data": {"question": "换个技术栈，我不想要这类技术栈"},
+                "data": {"question": "换个香型，我不太喜欢这一类香气"},
                 "icon": "cpu",
             },
             {
                 "type": "button",
-                "label": "换项目类型",
+                "label": "换个茶类",
                 "action": "send_question",
-                "data": {"question": "换个项目类型，别要管理系统这类"},
+                "data": {"question": "换个茶类，不要这一类茶"},
                 "icon": "grid",
             },
         ]
@@ -193,18 +193,18 @@ class TopicAdvisorService:
         state["topic_advisor_projects"] = []
         state["response"] = (
             "明白了，这一批都不太合适。我先不继续盲目重推。"
-            "您更想调整哪一块：技术栈、项目类型、难度还是预算？"
-            "也可以直接告诉我，比如“换 Python 的”“别要管理系统”“简单一点”或“500 以内”。"
+            "您更想调整哪一块：茶类、香型、口感浓淡还是预算？"
+            "也可以直接告诉我，比如“换成乌龙茶”“想要花香”“清淡一点”或“300 元以内”。"
         )
         state["quick_actions"] = self._build_refinement_quick_actions()
         state["topic_advisor_tool_results"] = []
 
-    async def _run_agent_loop_stream(self, messages: list):
+    def _run_agent_loop_stream(self, messages: list):
         tool_call_log = []
 
         for iteration in range(MAX_AGENT_ITERATIONS):
             logger.info("Topic advisor iteration=%s", iteration + 1)
-            response = await self.llm_with_tools.ainvoke(messages)
+            response = self.llm_with_tools.invoke(messages)
 
             if not response.tool_calls:
                 for char in response.content:
@@ -222,7 +222,7 @@ class TopicAdvisorService:
 
                 try:
                     tool = self.tool_map.get(tool_name)
-                    result = await tool.ainvoke(tool_args) if tool else {"error": f"未知工具: {tool_name}"}
+                    result = tool.invoke(tool_args) if tool else {"error": f"未知工具: {tool_name}"}
                 except Exception as exc:
                     logger.error("Topic advisor tool failed: %s error=%s", tool_name, exc)
                     result = {"error": str(exc)}
@@ -244,17 +244,17 @@ class TopicAdvisorService:
 
         logger.warning("Topic advisor reached max iterations, forcing final summary")
         messages.append(HumanMessage(content="请直接给出最终推荐结论，不要再调用工具。"))
-        final = await self.llm_with_tools.ainvoke(messages)
+        final = self.llm_with_tools.invoke(messages)
         for char in final.content:
             yield {"type": "token", "content": char}
         yield {"type": "done", "tool_call_log": tool_call_log}
 
-    async def _run_agent_loop(self, messages: list) -> tuple[str, list]:
+    def _run_agent_loop(self, messages: list) -> tuple[str, list]:
         tool_call_log = []
 
         for iteration in range(MAX_AGENT_ITERATIONS):
             logger.info("Topic advisor iteration=%s", iteration + 1)
-            response = await self.llm_with_tools.ainvoke(messages)
+            response = self.llm_with_tools.invoke(messages)
 
             if not response.tool_calls:
                 return response.content, tool_call_log
@@ -267,7 +267,7 @@ class TopicAdvisorService:
 
                 try:
                     tool = self.tool_map.get(tool_name)
-                    result = await tool.ainvoke(tool_args) if tool else {"error": f"未知工具: {tool_name}"}
+                    result = tool.invoke(tool_args) if tool else {"error": f"未知工具: {tool_name}"}
                 except Exception as exc:
                     logger.error("Topic advisor tool failed: %s error=%s", tool_name, exc)
                     result = {"error": str(exc)}
@@ -289,7 +289,7 @@ class TopicAdvisorService:
 
         logger.warning("Topic advisor reached max iterations, forcing final summary")
         messages.append(HumanMessage(content="请直接给出最终推荐结论，不要再调用工具。"))
-        final = await self.llm_with_tools.ainvoke(messages)
+        final = self.llm_with_tools.invoke(messages)
         return final.content, tool_call_log
 
     def _get_tool_description(self, tool_name: str, tool_args: dict) -> str:
@@ -297,14 +297,14 @@ class TopicAdvisorService:
             keyword = tool_args.get("keyword", "")
             max_price = tool_args.get("max_price")
             if max_price:
-                return f"正在搜索项目: {keyword} (预算 <= {max_price})..."
-            return f"正在搜索项目: {keyword}..."
+                return f"正在搜索茶品: {keyword} (预算 <= {max_price})..."
+            return f"正在搜索茶品: {keyword}..."
         if tool_name == "get_project_detail":
-            return "正在查看项目详情..."
+            return "正在查看茶品详情..."
         if tool_name == "compare_projects":
-            return f"正在对比 {len(tool_args.get('project_ids', []))} 个项目..."
+            return f"正在对比 {len(tool_args.get('project_ids', []))} 款茶品..."
         if tool_name == "check_tech_stack_match":
-            return "正在分析技术栈匹配度..."
+            return "正在分析风味偏好匹配度..."
         if tool_name == "get_personalized_recommendations":
             return "正在分析用户偏好并生成个性化推荐..."
         return f"正在执行工具: {tool_name}..."
@@ -362,32 +362,32 @@ class TopicAdvisorService:
             state["quick_actions"] = quick_actions
             return
 
-    async def run_agent(self, state: ConversationState) -> ConversationState:
+    def run_agent(self, state: ConversationState) -> ConversationState:
         self._refresh_tools(execution_context=state.get("execution_context"))
         messages = self._build_messages(state)
 
         try:
-            final_response, tool_call_log = await self._run_agent_loop(messages)
+            final_response, tool_call_log = self._run_agent_loop(messages)
             state["response"] = (
                 final_response
-                or "请告诉我您的选题需求，例如：我想做一个 Java 医疗管理系统，预算 500 元以内。"
+                or "请告诉我您的选茶需求，例如：想买一款花香明显的乌龙茶，预算 300 元以内。"
             )
             state["topic_advisor_tool_results"] = tool_call_log
             self._inject_project_actions(state, tool_call_log)
         except Exception as exc:
             logger.error("Topic advisor failed: %s", exc, exc_info=True)
-            state["response"] = "抱歉，分析您的选题需求时出现了问题，请稍后重试。"
+            state["response"] = "抱歉，分析您的选茶需求时出现了问题，请稍后重试。"
 
         return state
 
-    async def run_agent_stream(self, state: ConversationState):
+    def run_agent_stream(self, state: ConversationState):
         self._refresh_tools(execution_context=state.get("execution_context"))
         messages = self._build_messages(state)
 
         try:
             final_response = ""
             tool_call_log = []
-            async for event in self._run_agent_loop_stream(messages):
+            for event in self._run_agent_loop_stream(messages):
                 if event["type"] == "token":
                     final_response += event["content"]
                     yield event["content"]
@@ -401,7 +401,7 @@ class TopicAdvisorService:
             self._inject_project_actions(state, tool_call_log)
         except Exception as exc:
             logger.error("Topic advisor stream failed: %s", exc, exc_info=True)
-            yield "抱歉，分析您的选题需求时出现了问题，请稍后重试。"
+            yield "抱歉，分析您的选茶需求时出现了问题，请稍后重试。"
 
 
 __all__ = ["TopicAdvisorService", "TopicAdvisorMode"]

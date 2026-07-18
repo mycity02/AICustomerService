@@ -1,4 +1,4 @@
-﻿from ai_module.core.memory_builder import MemoryContextBuilder
+from ai_module.core.memory_builder import MemoryContextBuilder
 
 
 def test_recent_history_uses_short_term_window():

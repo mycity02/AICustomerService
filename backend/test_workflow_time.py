@@ -1,5 +1,4 @@
-﻿"""测试工作流各阶段耗时 + Function Calling 参数检查"""
-import asyncio
+"""测试工作流各阶段耗时 + Function Calling 参数检查"""
 import time
 import sys
 import os
@@ -19,7 +18,7 @@ TEST_CASES = [
 ]
 
 
-async def test_single(workflow, user_id, session_id, message, desc):
+def test_single(workflow, user_id, session_id, message, desc):
     print(f"\n{'='*60}")
     print(f"测试: {desc}")
     print(f"消息: {message}")
@@ -29,7 +28,7 @@ async def test_single(workflow, user_id, session_id, message, desc):
 
     # 阶段1: prepare_intent
     t0 = time.time()
-    state = await workflow.prepare_intent(user_id, session_id, message)
+    state = workflow.prepare_intent(user_id, session_id, message)
     t_intent = time.time() - t0
 
     intent = state.get("intent")
@@ -38,7 +37,7 @@ async def test_single(workflow, user_id, session_id, message, desc):
 
     # 阶段2: generate_response
     t0 = time.time()
-    state = await workflow.generate_response(state)
+    state = workflow.generate_response(state)
     t_response = time.time() - t0
 
     tool_used = state.get("tool_used")
@@ -54,7 +53,7 @@ async def test_single(workflow, user_id, session_id, message, desc):
                     r = tr["result"]
                     print(f"  搜索结果: {r.get('total', 0)} 个商品")
                     for p in r.get("products", [])[:3]:
-                        print(f"    - {p['title']} | 技术栈: {p.get('tech_stack', [])}")
+                        print(f"    - {p['title']} | 风味标签: {p.get('tech_stack', [])}")
     print(f"  响应: {response}")
 
     total = time.time() - total_start
@@ -70,12 +69,12 @@ async def test_single(workflow, user_id, session_id, message, desc):
     }
 
 
-async def main():
+def main():
     from ai_module.core.orchestration import AIWorkflow
     from services.redis_cache import redis_cache
 
     try:
-        await redis_cache.connect()
+        redis_cache.connect()
         print("✅ Redis连接成功")
     except Exception as e:
         print(f"⚠️ Redis连接失败: {e}")
@@ -86,7 +85,7 @@ async def main():
 
     for i, (message, desc) in enumerate(TEST_CASES):
         session_id = f"test_session_{i:03d}"
-        r = await test_single(workflow, user_id, session_id, message, desc)
+        r = test_single(workflow, user_id, session_id, message, desc)
         results.append(r)
 
     # 汇总
@@ -100,10 +99,10 @@ async def main():
         print(f"{r['message']:<25} {r['intent']:<10} {tool:<18} {r['total']:>5.2f}s")
 
     try:
-        await redis_cache.disconnect()
+        redis_cache.disconnect()
     except:
         pass
 
 
-asyncio.run(main())
+main()
 

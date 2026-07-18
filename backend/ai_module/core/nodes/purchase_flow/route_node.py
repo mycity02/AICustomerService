@@ -12,7 +12,7 @@ class PurchaseRouteNode(BaseNode):
         super().__init__()
         self.step_to_node_key = step_to_node_key
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         flow = state.get("purchase_flow") or {}
         step = flow.get("step")
         state["_purchase_flow_step"] = step

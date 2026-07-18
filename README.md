@@ -1,399 +1,159 @@
-﻿# AICustomerService
+# 云岫茶坊 AI 茶叶销售系统
 
-一个面向电商客服场景的 AI 项目，当前正在从“单业务定制工作流”演进为“微内核 + Business Pack 插件化”架构。
+一个以茶叶零售为业务场景的智能商城。系统覆盖茶品浏览、购物车、订单物流、售后服务、AI 选茶和 RAG 知识问答；后端已统一为同步 Flask 执行模型。
 
-这份 README 重点说明 AI 部分的设计，不只是介绍功能。
+## 核心能力
 
-## 1. 项目定位
+- 茶品商城：按茶类、价格、产地与风味标签筛选商品
+- AI 选茶顾问：结合自饮/礼赠场景、预算、香型和口感进行推荐与对比
+- RAG 问答：使用 FAISS 商品知识库回答茶品、冲泡、保存等问题
+- 交易链路：购物车、下单、支付、订单物流、退款与工单
+- 多轮 Agent：保留原有意图识别、工具调用、上下文记忆和工作流编排
+- Business Pack：业务提示词、插件清单、意图规则和能力开关集中配置
 
-这个项目的目标不是单纯做一个能聊天的客服，而是把 AI 能力沉淀成一套可复用的业务内核：
+## 技术栈
 
-- 内核负责通用能力
-- 业务包负责行业能力
-- 新业务尽量通过配置和插件接入，而不是改核心 workflow
+| 层级 | 技术 |
+| --- | --- |
+| 前端 | Vue 3、TypeScript、Vite、Pinia、Element Plus |
+| Web 后端 | Flask、Waitress、Flask-CORS |
+| 数据层 | SQLAlchemy、MySQL、Redis |
+| AI 编排 | LangChain、LangGraph、Business Pack Runtime |
+| RAG | FAISS、BM25、Embedding、混合检索与重排序 |
+| 测试 | Pytest、Flask Test Client |
 
-当前默认业务包是 `graduation-marketplace`，也就是“毕业设计商城”。
+## AI 链路
 
-## 2. 为什么要改架构
-
-旧结构的主要问题是：
-
-- 模型初始化写在 workflow 里，模型切换依赖改代码
-- 工具函数是固定集合，业务能力和 LangChain tool 强耦合
-- `gateway` 虽然有 `business_id`，但 AI 主流程实际上没有按业务动态装配
-- workflow 节点里混了大量电商/毕设业务语义，不利于复用
-
-这会导致：
-
-- 很难支持多业务
-- 很难支持多租户
-- 很难做模型分层策略
-- 很难把工具治理、权限控制、开关管理做规范
-
-## 3. 目标架构
-
-核心思想：
+茶叶主题改造只替换业务数据、提示词和展示语义，核心链路保持不变：
 
 ```text
-Business Request
-  -> RuntimeFactory
-     -> BusinessPack
-     -> Models
-     -> Tool Plugins
-     -> Intent Handlers
-     -> Prompt Config
-  -> AIWorkflow
-     -> Context
-     -> Intent Recognition
-     -> Function Calling / Agent
-     -> Route
-     -> Business Node
-     -> Save Context
+用户请求
+  -> Flask Chat / Gateway API
+  -> RuntimeFactory(tea-retail)
+  -> 上下文与会话状态
+  -> 意图识别
+  -> Function Calling / Topic Advisor Agent / RAG
+  -> 业务工作流节点
+  -> 保存上下文
+  -> 流式或普通响应
 ```
 
-这套结构里有 4 个关键概念。
+主要工作流包括：普通问答、茶品咨询、AI 推荐、购买流程、订单查询、售后流程、工单和文档分析。
 
-### 3.1 AI Kernel
+## 业务包
 
-AI Kernel 是稳定的共性能力，主要包括：
+默认业务包是 `tea-retail`：
 
-- workflow 编排
-- 对话状态管理
-- 意图路由框架
-- 工具调用框架
-- Agent 执行框架
-- 上下文持久化
-- 模型注入接口
+- 配置文件：`backend/config/businesses/tea-retail.yaml`
+- 品牌：云岫茶坊
+- 默认系统名：云岫茶坊 AI 茶叶销售系统
+- 默认知识集合：`tea_products`、`brewing_guides`、`product_catalog`
 
-它不应该知道“毕业设计商城”“订单退款”“技术栈匹配”这些具体业务词。
+为了不破坏既有 Agent 调用协议，以下内部工具名继续保留，但对外语义已经切换为茶叶销售：
 
-### 3.2 Business Pack
+| 兼容工具名 | 当前业务含义 |
+| --- | --- |
+| `search_projects` | 搜索茶叶商品 |
+| `get_project_detail` | 查看单款茶品详情 |
+| `compare_projects` | 对比多款茶品 |
+| `check_tech_stack_match` | 匹配顾客的香型、口感与茶类偏好 |
 
-Business Pack 是业务包，负责当前业务的差异化能力：
+同理，数据库字段 `tech_stack` 现在承载“产地、香型、工艺、风味标签”，`difficulty` 承载口感浓度：
 
-- 业务标识
-- 意图处理映射
-- prompt 配置
-- 工具插件启用清单
-- 知识库配置
-- 业务特性开关
-- 模型覆盖配置
+- `easy`：清新鲜爽
+- `medium`：醇香回甘
+- `hard`：浓醇耐泡
 
-当前业务包配置在：
+## 演示数据
 
-- `backend/config/businesses/graduation-marketplace.yaml`
+默认目录包含 6 个茶类和 8 款茶品：
 
-### 3.3 Runtime
+- 绿茶：西湖龙井、洞庭碧螺春
+- 红茶：武夷金骏眉
+- 乌龙茶：武夷山大红袍、安溪铁观音
+- 白茶：福鼎白牡丹
+- 普洱茶：新会陈皮普洱熟茶
+- 花茶：横州茉莉银针
 
-Runtime 是装配层，不负责回答用户问题，只负责把“这次请求该用哪套能力”装起来。
+旧演示数据库可执行安全迁移：
 
-它负责：
-
-- 读取 business pack
-- 创建 adapter
-- 初始化当前业务可用模型
-- 注册当前业务允许使用的插件
-- 对 workflow 暴露统一接口
-
-### 3.4 Plugin
-
-插件不是为了把函数换个名字，而是把能力变成“可注册、可过滤、可分组、可治理”的模块。
-
-在这个项目里，插件主要承担的是工具能力：
-
-- 查询订单
-- 搜索商品
-- 查询项目详情
-- 技术栈匹配
-- 个性化推荐
-
-## 4. 当前代码映射
-
-### 4.1 Kernel
-
-- `backend/ai_module/core/workflow/orchestrator.py`
-- `backend/ai_module/core/workflow/router.py`
-- `backend/ai_module/core/state.py`
-- `backend/ai_module/core/nodes/`
-
-### 4.2 Runtime / Business Pack
-
-- `backend/ai_module/core/runtime.py`
-- `backend/config/businesses/graduation-marketplace.yaml`
-
-### 4.3 Plugin System
-
-- `backend/ai_module/plugins/base.py`
-- `backend/ai_module/plugins/manager.py`
-- `backend/ai_module/plugins/builtin_tools.py`
-
-### 4.4 API Entry
-
-- `backend/api/chat.py`
-- `backend/api/gateway.py`
-
-## 5. 本次已经落地的改造
-
-### 5.1 模型从 workflow 中解耦
-
-现在 workflow 不再自己决定模型来源，而是通过 runtime 注入。
-
-已经实现：
-
-- `init_chat_model()` 支持 provider/model/api_key/base_url 覆盖
-- `init_intent_model()` 支持独立模型配置
-- runtime 可按 business pack 覆盖 LLM 参数
-
-相关文件：
-
-- `backend/config/__init__.py`
-- `backend/ai_module/core/runtime.py`
-- `backend/ai_module/core/workflow/orchestrator.py`
-
-### 5.2 引入 Business Pack Runtime
-
-新增 `AIRuntime` 和 `AIRuntimeFactory`，让 `business_id` 真正进入 AI 主链路。
-
-已经实现：
-
-- 根据 `business_id` 加载业务配置
-- 缓存 runtime 和 workflow
-- 创建 `ExecutionContext`
-- 提供 `get_langchain_tools()`、`get_handler_for_intent()` 等运行时能力
-
-相关文件：
-
-- `backend/ai_module/core/runtime.py`
-
-### 5.3 工具插件化
-
-当前做法不是让业务代码直接依赖 `@tool`，而是先把内置 LangChain tools 包装成平台插件，再按业务包过滤。
-
-已经实现：
-
-- `LangChainToolPlugin`
-- 插件别名解析
-- 按组过滤插件
-- `default` / `topic_advisor` 两套工具组
-
-相关文件：
-
-- `backend/ai_module/plugins/builtin_tools.py`
-- `backend/ai_module/plugins/manager.py`
-
-### 5.4 Workflow 改成运行时装配
-
-workflow 现在会读取 runtime：
-
-- 聊天模型
-- 意图模型
-- 工具插件
-- business_id
-- execution_context
-
-并且保留了原有流程能力：
-
-- 普通问答
-- function calling
-- 订单查询
-- 商品咨询
-- 购买流程
-- 售后流程
-- 选题推荐 Agent
-
-相关文件：
-
-- `backend/ai_module/core/workflow/orchestrator.py`
-
-### 5.5 Chat / Gateway 接入新架构
-
-已经实现：
-
-- `chat.py` 改走默认 runtime workflow
-- `gateway.py` 改走按 `business_id` 装配的 workflow
-- `gateway` 的业务信息和插件列表可返回真实运行时内容
-
-相关文件：
-
-- `backend/api/chat.py`
-- `backend/api/gateway.py`
-
-### 5.6 业务包插件清单真正生效
-
-`graduation-marketplace.yaml` 现在不只是占位配置，而是实际参与工具过滤。
-
-当前已配置的工具示例：
-
-- `query_order`
-- `search_products`
-- `get_personalized_recommendations`
-- `search_projects`
-- `get_project_detail`
-- `compare_projects`
-- `check_tech_stack_match`
-
-### 5.7 修复了两个会直接挡住改造的基础问题
-
-- 补了 `OrderService.get_order_by_no()`，避免订单工具调用断裂
-- 修了 `DEBUG=release` 这类环境变量导致配置初始化失败的问题
-
-## 6. 当前请求流转
-
-以 `gateway` 请求为例：
-
-```text
-Client
-  -> /api/v1/gateway/chat/message
-  -> runtime_factory.get_runtime(business_id)
-  -> runtime_factory.get_workflow(business_id)
-  -> workflow.process_message(...)
-     -> load_context
-     -> intent_recognition
-     -> function_calling / topic_advisor
-     -> router
-     -> business node
-     -> save_context
-  -> response
+```powershell
+cd backend
+.\venv\Scripts\python.exe migrate_tea_catalog.py
 ```
 
-“推荐”意图是一个典型例子：
+迁移脚本仅匹配预置的旧演示商品标题，不会批量改写用户自行创建的商品；无商品引用的旧演示分类会被清理。
 
-```text
-用户消息
-  -> 意图识别: 推荐
-  -> workflow 直接路由到 TopicAdvisorNode
-  -> TopicAdvisorNode 从 runtime 获取 topic_advisor 工具组
-  -> Agent 自主调用项目搜索/详情/对比/匹配工具
-  -> 生成文本 + quick_actions
+## 快速启动
+
+确保 MySQL、Redis、后端虚拟环境和前端依赖已经就绪，然后在项目根目录运行：
+
+```powershell
+.\start.bat
 ```
 
-## 7. 现在这套设计的意义
+默认地址：
 
-这次改造不会直接让 LLM 更聪明，也不会凭空提升回答质量。
+- 前端：`http://localhost:5173`
+- 后端：`http://localhost:8000`
+- 路由清单：`http://localhost:8000/api/docs`
 
-它带来的价值是系统工程能力：
+也可以分别启动：
 
-- 更容易切模型
-- 更容易做多模型分工
-- 更容易做多业务接入
-- 更容易按业务开关工具
-- 更容易后续接权限、审计、限流和 MCP
+```powershell
+cd backend
+.\venv\Scripts\python.exe main.py
 
-也就是说，这一步主要提升的是：
+cd frontend
+npm run dev
+```
 
-- 可扩展性
-- 可维护性
-- 可插拔性
-- 运行时治理能力
+## 测试与构建
 
-## 8. 如何新增一个业务包
+后端全量测试：
 
-理论步骤如下：
+```powershell
+cd backend
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'
+.\venv\Scripts\python.exe -m pytest tests -q
+```
 
-1. 新建一个业务配置文件
-2. 定义 business_id、features、plugins、prompts、llm 配置
-3. 如果需要新的工具能力，注册新插件
-4. 如果需要新的意图处理器，扩展 handler 映射
-5. 通过 `gateway` 传入新的 `business_id`
+前端生产构建：
 
-最小形态下，只改配置就可以切换已有工具组合。
+```powershell
+cd frontend
+npm run build
+```
 
-## 9. 如何新增一个工具插件
-
-当前推荐做法：
-
-1. 先实现业务能力
-2. 如果它已经是 LangChain tool，就通过 `LangChainToolPlugin` 包装
-3. 注册到 `PluginManager`
-4. 在业务包 YAML 中启用
-5. 通过 runtime 分组暴露给 workflow 或 agent
-
-## 10. 当前边界
-
-这次不是“企业级平台最终版”，而是第一阶段。
-
-还没完全做完的部分：
-
-- 意图定义还没有完全配置驱动
-- prompt 体系还没有完全下沉到 business pack
-- 工具层还没有统一改成 `ExecutionContext + Adapter + 权限校验`
-- 还没有多租户隔离、审计、限流、熔断、观测
-- 还没有把外部能力做成 MCP Server / MCP Client 体系
-
-所以当前更准确的描述是：
-
-**已经完成微内核插件架构的主链路重构，但还没有完成企业级治理层。**
-
-## 11. 后续建议
-
-如果继续往企业级做，建议按这个顺序推进：
-
-1. 工具层统一接入 `ExecutionContext`
-2. 增加 adapter 权限校验
-3. 把 intent handler 和 prompt 完全配置化
-4. 引入可观测性和审计日志
-5. 做多租户隔离
-6. 评估 MCP 接入外部系统
-
-## 12. 开发说明
-
-后端主要目录：
+## 主要目录
 
 ```text
 backend/
+  flask_api/                     # Flask 业务接口
+  web/                           # 应用工厂、HTTP 与同步执行基础设施
   ai_module/
-    engine.py
-    app.py
-  api/
-  adapters/
-  config/
-  plugins/
-  services/
-    ai/
-      nodes/
-      runtime.py
-      workflow.py
+    core/                        # 编排、状态、节点与工作流
+    infrastructure/plugins/      # 工具插件
+  config/businesses/tea-retail.yaml
+  services/                      # 商品、订单、RAG 等领域服务
+  migrate_tea_catalog.py
+frontend/
+  src/views/                     # 商城与客服页面
+  src/components/                # 公共布局和商品组件
 ```
 
-AI 模块已独立入口化：
+## 架构边界与后续方向
 
-- 核心调用入口：`backend/ai_module/engine.py`
-- 独立服务入口：`backend/ai_module/app.py`
-- 兼容导出：`backend/ai_module/runtime.py`、`backend/ai_module/workflow.py`
-- 快速启动文件：`backend/main_ai.py`
+当前已经完成同步 Flask 迁移和茶叶业务落地，但仍可继续增强：
 
-启动方式可参考：
+- 将兼容字段逐步升级为通用商品属性模型
+- 增加真实库存、批次、规格、产年与保质期字段
+- 为 RAG 增加茶类知识、冲泡指南和质量评测集
+- 完善权限、审计、限流、可观测性和多租户隔离
+- 对前端大体积 chunk 继续做代码分包
 
-- `start.bat`
+## 安全提示
 
-如果只看 AI 主线，优先阅读这些文件：
-
-- `backend/ai_module/core/runtime.py`
-- `backend/ai_module/core/workflow/orchestrator.py`
-- `backend/ai_module/core/workflow/router.py`
-- `backend/ai_module/plugins/builtin_tools.py`
-- `backend/config/businesses/graduation-marketplace.yaml`
-
-兼容说明：
-
-- 旧的 `backend/services/ai/*` 与 `backend/plugins/*` 兼容层已移除
-- 请统一使用 `backend/ai_module/*` 路径
-
-## 13. 安全提示
-
-当前仓库里仍然存在敏感配置和较强的本地耦合，这部分不属于本次 README 改造范围，但在正式部署前必须继续处理：
-
-- 清理硬编码密钥
-- 统一环境变量管理
-- 区分开发/测试/生产配置
-- 为工具访问补权限和审计
-
----
-
-如果后续继续演进，这份 README 应该同步更新，尤其是以下内容：
-
-- Business Pack 结构
-- 插件注册方式
-- Intent Handler 配置方式
-- MCP 接入说明
-
+- 不要提交真实 API Key、数据库密码或支付密钥
+- 通过 `.env` 管理本地配置，并为测试、开发、生产使用不同配置
+- 正式部署前补齐工具权限校验、操作审计与接口限流

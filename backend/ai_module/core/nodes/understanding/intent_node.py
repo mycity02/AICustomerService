@@ -143,12 +143,12 @@ class IntentRecognitionNode(BaseNode):
             logger.info("Rule matched smalltalk intent=qa")
             return INTENT_QA, 0.99
 
-        if re.search(r"(毕设|毕业设计|课设|选题)", text, re.IGNORECASE):
-            logger.info("Rule matched graduation-project intent=recommend")
+        if re.search(r"(选茶|送礼茶|口粮茶|推荐.*茶)", text, re.IGNORECASE):
+            logger.info("Rule matched tea-selection intent=recommend")
             return INTENT_RECOMMEND, 0.98
 
-        if re.search(r"(找|要|想做|需要).*(项目|源码)", text, re.IGNORECASE):
-            logger.info("Rule matched project-seeking intent=recommend")
+        if re.search(r"(找|要|想买|需要).*(茶|茶叶|茶品)", text, re.IGNORECASE):
+            logger.info("Rule matched tea-seeking intent=recommend")
             return INTENT_RECOMMEND, 0.95
 
         message_lower = text.lower()
@@ -206,7 +206,7 @@ class IntentRecognitionNode(BaseNode):
         }
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         valid_intents = set(self._get_valid_intents())
         has_attachments = bool(state.get("attachments"))
         user_message = state["user_message"].strip()
@@ -302,7 +302,7 @@ class IntentRecognitionNode(BaseNode):
             else:
                 messages = template.format_messages(message=user_message[:200])
 
-            response = await self.llm.ainvoke(messages)
+            response = self.llm.invoke(messages)
             raw = response.content.strip().strip("\"'")
 
             intent = INTENT_QA

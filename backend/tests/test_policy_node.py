@@ -1,4 +1,4 @@
-﻿import pytest
+import pytest
 from ai_module.core.nodes.policy.policy_node import PolicyNode
 
 
@@ -21,8 +21,7 @@ def _make_state(**overrides):
 
 
 class TestPolicyNode:
-    @pytest.mark.asyncio
-    async def test_self_contained_request_prefers_domain_intent(self):
+    def test_self_contained_request_prefers_domain_intent(self):
         node = PolicyNode()
         state = _make_state(
             dialogue_act="new_request",
@@ -33,14 +32,12 @@ class TestPolicyNode:
             active_task={"intent": "问答", "status": "awaiting_user"},
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "推荐"
         assert result["confidence"] == 0.92
         assert result["continue_previous_task"] is False
-
-    @pytest.mark.asyncio
-    async def test_continuation_reuses_active_task_intent(self):
+    def test_continuation_reuses_active_task_intent(self):
         node = PolicyNode()
         state = _make_state(
             dialogue_act="provide_slot",
@@ -50,13 +47,11 @@ class TestPolicyNode:
             last_intent="推荐",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "推荐"
         assert result["confidence"] == 0.9
-
-    @pytest.mark.asyncio
-    async def test_conflicting_hint_breaks_continuation_bias(self):
+    def test_conflicting_hint_breaks_continuation_bias(self):
         node = PolicyNode()
         state = _make_state(
             dialogue_act="provide_slot",
@@ -67,15 +62,13 @@ class TestPolicyNode:
             last_intent="问答",
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "订单查询"
         assert result["dialogue_act"] == "new_request"
         assert result["continue_previous_task"] is False
         assert result["self_contained_request"] is True
-
-    @pytest.mark.asyncio
-    async def test_unclear_turn_keeps_intent_empty_for_clarification(self):
+    def test_unclear_turn_keeps_intent_empty_for_clarification(self):
         node = PolicyNode()
         state = _make_state(
             dialogue_act="unclear",
@@ -83,7 +76,7 @@ class TestPolicyNode:
             understanding_confidence=0.25,
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] is None
         assert result["confidence"] == 0.25

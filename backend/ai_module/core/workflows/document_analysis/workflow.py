@@ -1,7 +1,7 @@
 """Document analysis workflow implementation."""
 from __future__ import annotations
 
-from typing import AsyncIterator
+from typing import Iterator
 
 from ...nodes.document_analysis import DocumentExtractNode, DocumentRespondNode
 from ...state import ConversationState
@@ -19,28 +19,28 @@ class DocumentAnalysisWorkflow(BaseWorkflow):
         self.extract_node = DocumentExtractNode(self.service)
         self.respond_node = DocumentRespondNode(self.service)
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         current = DocumentAnalysisState.START
 
         while current != DocumentAnalysisState.END:
             current = next_state(current)
             if current == DocumentAnalysisState.EXTRACT:
-                state = await self.extract_node.execute(state)
+                state = self.extract_node.execute(state)
             elif current == DocumentAnalysisState.RESPOND:
-                state = await self.respond_node.execute(state)
+                state = self.respond_node.execute(state)
 
         self._cleanup(state)
         return state
 
-    async def execute_stream(self, state: ConversationState) -> AsyncIterator[str]:
+    def execute_stream(self, state: ConversationState) -> Iterator[str]:
         current = DocumentAnalysisState.START
 
         while current != DocumentAnalysisState.END:
             current = next_state(current)
             if current == DocumentAnalysisState.EXTRACT:
-                state = await self.extract_node.execute(state)
+                state = self.extract_node.execute(state)
             elif current == DocumentAnalysisState.RESPOND:
-                async for token in self.respond_node.execute_stream(state):
+                for token in self.respond_node.execute_stream(state):
                     yield token
 
         self._cleanup(state)

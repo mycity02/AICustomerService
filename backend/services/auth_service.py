@@ -4,8 +4,8 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-from sqlalchemy.ext.asyncio import AsyncSession
+import bcrypt
+from sqlalchemy.orm import Session
 from sqlalchemy import select
 import uuid
 
@@ -17,21 +17,25 @@ from schemas import UserCreate, UserLogin, AuthToken, UserResponse
 class AuthService:
     """认证服务类"""
     
-    def __init__(self):
-        # 密码加密上下文
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    
+    @staticmethod
+    def _password_bytes(password: str) -> bytes:
+        """按 bcrypt 的 72 字节上限规范化密码。"""
+        return password.encode("utf-8")[:72]
+
     def hash_password(self, password: str) -> str:
-        """哈希密码（自动截断到72字节，bcrypt限制）"""
-        # bcrypt 限制密码最长 72 字节
-        password_bytes = password.encode('utf-8')[:72]
-        return self.pwd_context.hash(password_bytes)
+        """使用 bcrypt 原生接口生成可持久化的密码哈希。"""
+        hashed = bcrypt.hashpw(self._password_bytes(password), bcrypt.gensalt())
+        return hashed.decode("utf-8")
 
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
-        """验证密码"""
-        # 同样截断输入的密码
-        password_bytes = plain_password.encode('utf-8')[:72]
-        return self.pwd_context.verify(password_bytes, hashed_password)
+        """验证 bcrypt 密码，并安全处理损坏或非 bcrypt 哈希。"""
+        try:
+            return bcrypt.checkpw(
+                self._password_bytes(plain_password),
+                hashed_password.encode("utf-8"),
+            )
+        except (AttributeError, TypeError, ValueError):
+            return False
     
     def create_access_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
         """创建访问令牌"""
@@ -61,10 +65,10 @@ class AuthService:
         except JWTError:
             return None
     
-    async def register(self, db: AsyncSession, user_data: UserCreate) -> UserResponse:
+    def register(self, db: Session, user_data: UserCreate) -> UserResponse:
         """注册新用户"""
         # 检查用户名是否已存在
-        result = await db.execute(select(User).where(User.username == user_data.username))
+        result = db.execute(select(User).where(User.username == user_data.username))
         existing_user = result.scalar_one_or_none()
         if existing_user:
             raise ValueError("用户名已存在")
@@ -80,15 +84,15 @@ class AuthService:
         )
         
         db.add(user)
-        await db.commit()
-        await db.refresh(user)
+        db.commit()
+        db.refresh(user)
         
         return UserResponse.model_validate(user)
     
-    async def login(self, db: AsyncSession, login_data: UserLogin) -> AuthToken:
+    def login(self, db: Session, login_data: UserLogin) -> AuthToken:
         """用户登录"""
         # 查找用户
-        result = await db.execute(select(User).where(User.username == login_data.username))
+        result = db.execute(select(User).where(User.username == login_data.username))
         user = result.scalar_one_or_none()
         
         if not user or not self.verify_password(login_data.password, user.password_hash):
@@ -99,7 +103,7 @@ class AuthService:
         
         # 更新最后登录时间
         user.last_login = datetime.utcnow()
-        await db.commit()
+        db.commit()
         
         # 生成令牌
         token_data = {"sub": user.id, "username": user.username, "role": user.role.value}
@@ -113,7 +117,7 @@ class AuthService:
             expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
     
-    async def refresh_access_token(self, refresh_token: str) -> AuthToken:
+    def refresh_access_token(self, refresh_token: str) -> AuthToken:
         """刷新访问令牌"""
         payload = self.verify_token(refresh_token)
         if not payload or payload.get("type") != "refresh":
@@ -134,7 +138,7 @@ class AuthService:
             expires_in=settings.JWT_ACCESS_TOKEN_EXPIRE_MINUTES * 60
         )
     
-    async def get_current_user(self, db: AsyncSession, token: str) -> UserResponse:
+    def get_current_user(self, db: Session, token: str) -> UserResponse:
         """获取当前用户"""
         payload = self.verify_token(token)
         if not payload or payload.get("type") != "access":
@@ -144,7 +148,7 @@ class AuthService:
         if not user_id:
             raise ValueError("令牌中缺少用户ID")
         
-        result = await db.execute(select(User).where(User.id == user_id))
+        result = db.execute(select(User).where(User.id == user_id))
         user = result.scalar_one_or_none()
         
         if not user:

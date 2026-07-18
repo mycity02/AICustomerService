@@ -7,6 +7,6 @@ from .base_step_node import OrderQueryStepNode
 
 
 class OrderQueryModeNode(OrderQueryStepNode):
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         state["_order_query_mode"] = self.service.resolve_mode(state)
         return state

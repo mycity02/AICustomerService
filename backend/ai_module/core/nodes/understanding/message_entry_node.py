@@ -313,7 +313,7 @@ class MessageEntryNode(BaseNode):
 """
         return ChatPromptTemplate.from_messages([("system", system_prompt), ("human", "{input_payload}")])
 
-    async def _infer_inflow_with_llm(
+    def _infer_inflow_with_llm(
         self,
         state: ConversationState,
         *,
@@ -338,7 +338,7 @@ class MessageEntryNode(BaseNode):
             "task_snapshot": self.memory_builder.build_task_snapshot_text(state),
         }
         try:
-            response = await self.llm.ainvoke(
+            response = self.llm.invoke(
                 prompt.format_messages(input_payload=json.dumps(payload, ensure_ascii=False, indent=2))
             )
             raw = response.content if hasattr(response, "content") else str(response)
@@ -353,14 +353,14 @@ class MessageEntryNode(BaseNode):
             logger.warning("Message entry inflow LLM fallback failed: %s", exc)
             return None
 
-    async def _run_global_intent(self, state: ConversationState) -> ConversationState:
+    def _run_global_intent(self, state: ConversationState) -> ConversationState:
         state["entry_classifier"] = ENTRY_CLASSIFIER_GLOBAL
         state["flow_relation"] = "no_flow"
         state["dialogue_act"] = DIALOGUE_ACT_NEW_REQUEST
         state["self_contained_request"] = True
         state["continue_previous_task"] = False
 
-        result = await self.global_intent_classifier.execute(state)
+        result = self.global_intent_classifier.execute(state)
         if result.get("intent"):
             confidence = float(result.get("confidence") or 0.9)
             result["domain_intent"] = result.get("intent")
@@ -383,7 +383,7 @@ class MessageEntryNode(BaseNode):
             return False
         return hinted_intent != active_flow
 
-    async def _build_switch_state(
+    def _build_switch_state(
         self,
         state: ConversationState,
         *,
@@ -391,7 +391,7 @@ class MessageEntryNode(BaseNode):
         current_step: Optional[str],
         expected_user_acts: List[str],
     ) -> ConversationState:
-        switched = await self.global_intent_classifier.execute(state)
+        switched = self.global_intent_classifier.execute(state)
         switched["entry_classifier"] = ENTRY_CLASSIFIER_INFLOW
         switched["has_active_flow"] = True
         switched["active_flow"] = active_flow
@@ -413,7 +413,7 @@ class MessageEntryNode(BaseNode):
         switched["need_clarification"] = not bool(switched.get("intent"))
         return switched
 
-    async def _try_soft_switch_to_global_intent(
+    def _try_soft_switch_to_global_intent(
         self,
         state: ConversationState,
         *,
@@ -439,7 +439,7 @@ class MessageEntryNode(BaseNode):
         probe_state["domain_intent"] = None
         probe_state["need_clarification"] = False
 
-        result = await self.global_intent_classifier.execute(probe_state)
+        result = self.global_intent_classifier.execute(probe_state)
         intent = result.get("intent")
         confidence = float(result.get("confidence") or 0.0)
 
@@ -520,7 +520,7 @@ class MessageEntryNode(BaseNode):
             self._append_preselected_intent(state, active_flow, confidence)
         return state
 
-    async def _run_inflow_classifier(self, state: ConversationState) -> ConversationState:
+    def _run_inflow_classifier(self, state: ConversationState) -> ConversationState:
         active_flow = state.get("active_flow")
         current_step = state.get("current_step")
         expected_user_acts = state.get("expected_user_acts") or []
@@ -550,7 +550,7 @@ class MessageEntryNode(BaseNode):
             state["understanding_confidence"] = 0.95
             return self._apply_non_switch_inflow(state, active_flow, INFLOW_CANCEL_FLOW)
 
-        state = await self.inflow_understanding.execute(state)
+        state = self.inflow_understanding.execute(state)
 
         if not state.get("continue_previous_task"):
             if self._looks_out_of_business_scope(state):
@@ -566,7 +566,7 @@ class MessageEntryNode(BaseNode):
             state["dialogue_act"] = DIALOGUE_ACT_SWITCH_TOPIC
             state["continue_previous_task"] = False
             state["self_contained_request"] = True
-            return await self._build_switch_state(
+            return self._build_switch_state(
                 state,
                 active_flow=active_flow,
                 current_step=current_step,
@@ -587,7 +587,7 @@ class MessageEntryNode(BaseNode):
             inflow_type = INFLOW_CORRECTION if state.get("dialogue_act") == "correct" else INFLOW_VALID_CURRENT_INPUT
             return self._apply_non_switch_inflow(state, active_flow, inflow_type)
 
-        llm_result = await self._infer_inflow_with_llm(
+        llm_result = self._infer_inflow_with_llm(
             state,
             active_flow=active_flow,
             current_step=current_step,
@@ -608,7 +608,7 @@ class MessageEntryNode(BaseNode):
                 state["continue_previous_task"] = False
                 state["dialogue_act"] = DIALOGUE_ACT_SWITCH_TOPIC
                 state["flow_relation"] = "switch"
-                return await self._build_switch_state(
+                return self._build_switch_state(
                     state,
                     active_flow=active_flow,
                     current_step=current_step,
@@ -624,7 +624,7 @@ class MessageEntryNode(BaseNode):
                 return state
 
             if inflow_type in {INFLOW_IRRELEVANT, INFLOW_UNKNOWN, INFLOW_RELATED_QUESTION}:
-                switched = await self._try_soft_switch_to_global_intent(
+                switched = self._try_soft_switch_to_global_intent(
                     state,
                     active_flow=active_flow,
                     current_step=current_step,
@@ -636,7 +636,7 @@ class MessageEntryNode(BaseNode):
             return self._apply_non_switch_inflow(state, active_flow, inflow_type)
 
         if not self._looks_like_ambiguous_reference(message):
-            switched = await self._try_soft_switch_to_global_intent(
+            switched = self._try_soft_switch_to_global_intent(
                 state,
                 active_flow=active_flow,
                 current_step=current_step,
@@ -656,7 +656,7 @@ class MessageEntryNode(BaseNode):
         state["understanding_confidence"] = float(state.get("understanding_confidence") or 0.3)
         return self._apply_non_switch_inflow(state, active_flow, INFLOW_UNKNOWN)
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         self._reset_entry_fields(state)
 
         has_active_flow = self._has_active_flow(state)
@@ -676,6 +676,6 @@ class MessageEntryNode(BaseNode):
             if unsupported_capability is not None:
                 return self._build_unsupported_capability_state(state, unsupported_capability)
 
-            return await self._run_global_intent(state)
+            return self._run_global_intent(state)
 
-        return await self._run_inflow_classifier(state)
+        return self._run_inflow_classifier(state)

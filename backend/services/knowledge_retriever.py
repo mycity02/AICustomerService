@@ -5,7 +5,6 @@
 """
 from typing import List, Dict, Optional, Any, Tuple
 import uuid
-import asyncio
 import logging
 import os
 import json
@@ -240,7 +239,7 @@ class KnowledgeRetriever:
         except Exception as e:
             logger.error(f"构建BM25索引失败: {e}")
 
-    async def _query_rewrite(self, query: str) -> List[str]:
+    def _query_rewrite(self, query: str) -> List[str]:
         if not self.llm:
             return [query]
         try:
@@ -253,14 +252,14 @@ class KnowledgeRetriever:
 4. 每行一个查询,不要编号"""),
                 ("human", "原始问题: {query}\n\n请生成3个改写查询:")
             ])
-            response = await self.llm.ainvoke(prompt.format_messages(query=query))
+            response = self.llm.invoke(prompt.format_messages(query=query))
             rewritten = [q.strip() for q in response.content.strip().split('\n') if q.strip()]
             return [query] + rewritten[:3]
         except Exception as e:
             logger.error(f"查询改写失败: {e}")
             return [query]
 
-    async def _vector_search(
+    def _vector_search(
         self, query: str, collection_name: str, top_k: int,
         filter_metadata: Optional[Dict] = None
     ) -> List[Tuple[Document, float]]:
@@ -270,10 +269,7 @@ class KnowledgeRetriever:
                 if collection_name == "knowledge_base"
                 else self.product_collection
             )
-            loop = asyncio.get_event_loop()
-            query_embedding = await loop.run_in_executor(
-                None, self.embeddings.embed_query, query
-            )
+            query_embedding = self.embeddings.embed_query(query)
             results = collection.query(
                 query_embeddings=[query_embedding],
                 n_results=top_k,
@@ -313,7 +309,7 @@ class KnowledgeRetriever:
             logger.error(f"BM25检索失败: {e}")
             return []
 
-    async def _rerank_documents(
+    def _rerank_documents(
         self, query: str, docs_with_scores: List[Tuple[Document, float]], top_k: int
     ) -> List[Document]:
         if not self.llm or not docs_with_scores:
@@ -328,7 +324,7 @@ class KnowledgeRetriever:
 返回格式: 每行一个文档编号,按相关性从高到低排序,只返回编号,用逗号分隔。"""),
                 ("human", "问题: {query}\n\n候选文档:\n{docs}\n\n请返回文档编号(按相关性排序):")
             ])
-            response = await self.llm.ainvoke(prompt.format_messages(query=query, docs=docs_text))
+            response = self.llm.invoke(prompt.format_messages(query=query, docs=docs_text))
             ranking_str = response.content.strip()
             rankings = [int(x.strip()) - 1 for x in ranking_str.split(',') if x.strip().isdigit()]
             reranked_docs = []
@@ -345,7 +341,7 @@ class KnowledgeRetriever:
             logger.error(f"重排序失败: {e}")
             return [doc for doc, _ in docs_with_scores[:top_k]]
 
-    async def retrieve(
+    def retrieve(
         self, query: str, collection_name: str = "knowledge_base",
         top_k: int = 3, filter_metadata: Optional[Dict] = None,
         use_hybrid: bool = True, use_rerank: bool = True, use_query_rewrite: bool = True
@@ -365,9 +361,9 @@ class KnowledgeRetriever:
             all_docs_with_scores = []
             queries = [query]
             if use_query_rewrite:
-                queries = await self._query_rewrite(query)
+                queries = self._query_rewrite(query)
             for q in queries:
-                vector_results = await self._vector_search(q, collection_name, top_k * 2, filter_metadata)
+                vector_results = self._vector_search(q, collection_name, top_k * 2, filter_metadata)
                 all_docs_with_scores.extend(vector_results)
                 if use_hybrid and BM25Okapi:
                     bm25_results = self._bm25_search(q, collection_name, top_k * 2)
@@ -386,7 +382,7 @@ class KnowledgeRetriever:
                     doc_scores[doc_key] = (doc, score)
             sorted_docs = sorted(doc_scores.values(), key=lambda x: x[1], reverse=True)[:top_k * 3]
             if use_rerank and self.llm and len(sorted_docs) > top_k:
-                final_docs = await self._rerank_documents(query, sorted_docs, top_k)
+                final_docs = self._rerank_documents(query, sorted_docs, top_k)
             else:
                 final_docs = [doc for doc, _ in sorted_docs[:top_k]]
             for doc in final_docs:
@@ -398,7 +394,7 @@ class KnowledgeRetriever:
             logger.error(f"高级检索失败: {e}")
             return []
 
-    async def add_documents(
+    def add_documents(
         self, documents: List[Dict[str, Any]], collection_name: str = "knowledge_base"
     ) -> List[str]:
         """添加文档到知识库"""
@@ -424,10 +420,7 @@ class KnowledgeRetriever:
                 metadatas.append(doc.get("metadata", {}))
 
             try:
-                loop = asyncio.get_event_loop()
-                embeddings = await loop.run_in_executor(
-                    None, self.embeddings.embed_documents, texts
-                )
+                embeddings = self.embeddings.embed_documents(texts)
                 collection.add(
                     ids=doc_ids,
                     documents=texts,
@@ -442,7 +435,7 @@ class KnowledgeRetriever:
         self._build_bm25_index(collection_name)
         return all_doc_ids
 
-    async def delete_documents(
+    def delete_documents(
         self,
         document_ids: List[str],
         collection_name: str = "knowledge_base",
@@ -464,10 +457,10 @@ class KnowledgeRetriever:
             logger.error(f"批量删除文档失败: {e}")
             return 0
 
-    async def delete_document(self, document_id: str, collection_name: str = "knowledge_base"):
-        await self.delete_documents([document_id], collection_name)
+    def delete_document(self, document_id: str, collection_name: str = "knowledge_base"):
+        self.delete_documents([document_id], collection_name)
 
-    async def delete_by_metadata(
+    def delete_by_metadata(
         self,
         filter_metadata: Dict,
         collection_name: str = "knowledge_base",
@@ -486,9 +479,9 @@ class KnowledgeRetriever:
         document_ids = results.get("ids", []) if results else []
         if not document_ids:
             return 0
-        return await self.delete_documents(document_ids, collection_name)
+        return self.delete_documents(document_ids, collection_name)
 
-    async def update_document(
+    def update_document(
         self, document_id: str, content: str,
         metadata: Optional[Dict] = None, collection_name: str = "knowledge_base"
     ):
@@ -508,7 +501,7 @@ class KnowledgeRetriever:
         )
         self._build_bm25_index(collection_name)
 
-    async def search_by_metadata(
+    def search_by_metadata(
         self, filter_metadata: Dict, collection_name: str = "knowledge_base", limit: int = 10
     ) -> List[Document]:
         if not self.available:

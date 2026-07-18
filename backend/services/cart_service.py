@@ -2,7 +2,7 @@
 购物车服务模块
 """
 from typing import List, Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload
 from database.models import CartItem, Product, ProductStatus
@@ -12,13 +12,13 @@ import uuid
 class CartService:
     """购物车服务类"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def add_to_cart(self, user_id: str, product_id: str, quantity: int = 1) -> Dict[str, Any]:
+    def add_to_cart(self, user_id: str, product_id: str, quantity: int = 1) -> Dict[str, Any]:
         """添加商品到购物车"""
         # 检查商品是否存在且已发布
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product).where(
                 and_(
                     Product.id == product_id,
@@ -32,7 +32,7 @@ class CartService:
             raise ValueError("商品不存在或未发布")
 
         # 检查是否已在购物车
-        result = await self.db.execute(
+        result = self.db.execute(
             select(CartItem).where(
                 and_(
                     CartItem.user_id == user_id,
@@ -45,8 +45,8 @@ class CartService:
         if existing:
             # 更新数量
             existing.quantity += quantity
-            await self.db.commit()
-            await self.db.refresh(existing)
+            self.db.commit()
+            self.db.refresh(existing)
             return {"message": "商品数量已更新", "cart_item_id": existing.id}
 
         # 添加到购物车
@@ -58,14 +58,14 @@ class CartService:
         )
 
         self.db.add(cart_item)
-        await self.db.commit()
-        await self.db.refresh(cart_item)
+        self.db.commit()
+        self.db.refresh(cart_item)
 
         return {"message": "添加成功", "cart_item_id": cart_item.id}
     
-    async def remove_from_cart(self, user_id: str, product_id: str) -> bool:
+    def remove_from_cart(self, user_id: str, product_id: str) -> bool:
         """从购物车删除商品"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(CartItem).where(
                 and_(
                     CartItem.user_id == user_id,
@@ -78,14 +78,14 @@ class CartService:
         if not cart_item:
             return False
         
-        await self.db.delete(cart_item)
-        await self.db.commit()
+        self.db.delete(cart_item)
+        self.db.commit()
         
         return True
     
-    async def get_cart(self, user_id: str) -> Dict[str, Any]:
+    def get_cart(self, user_id: str) -> Dict[str, Any]:
         """获取购物车"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(CartItem)
             .options(
                 joinedload(CartItem.product).joinedload(Product.seller),
@@ -135,13 +135,13 @@ class CartService:
             "total_items": sum(item["quantity"] for item in items)
         }
 
-    async def update_quantity(self, user_id: str, product_id: str, quantity: int) -> Optional[Dict[str, Any]]:
+    def update_quantity(self, user_id: str, product_id: str, quantity: int) -> Optional[Dict[str, Any]]:
         """更新购物车商品数量"""
         if quantity <= 0:
             # 如果数量小于等于0，删除该商品
-            return await self.remove_from_cart(user_id, product_id)
+            return self.remove_from_cart(user_id, product_id)
 
-        result = await self.db.execute(
+        result = self.db.execute(
             select(CartItem).where(
                 and_(
                     CartItem.user_id == user_id,
@@ -155,28 +155,28 @@ class CartService:
             return None
 
         cart_item.quantity = quantity
-        await self.db.commit()
-        await self.db.refresh(cart_item)
+        self.db.commit()
+        self.db.refresh(cart_item)
 
         return {"message": "数量已更新", "cart_item_id": cart_item.id, "quantity": cart_item.quantity}
 
-    async def clear_cart(self, user_id: str) -> bool:
+    def clear_cart(self, user_id: str) -> bool:
         """清空购物车"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(CartItem).where(CartItem.user_id == user_id)
         )
         cart_items = result.scalars().all()
         
         for item in cart_items:
-            await self.db.delete(item)
+            self.db.delete(item)
         
-        await self.db.commit()
+        self.db.commit()
         
         return True
     
-    async def get_cart_count(self, user_id: str) -> int:
+    def get_cart_count(self, user_id: str) -> int:
         """获取购物车商品数量"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(CartItem).where(CartItem.user_id == user_id)
         )
         cart_items = result.scalars().all()

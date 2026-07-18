@@ -8,7 +8,7 @@ from ai_module.core.state import ConversationState
 class PurchaseValidateNode(BaseNode):
     """Validate purchase flow state before routing."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         flow = state.get("purchase_flow") or {}
         if not flow.get("step"):
             raise ValueError("purchase_flow.step is required")

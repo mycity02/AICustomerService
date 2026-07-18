@@ -11,7 +11,7 @@ from langchain_core.prompts import ChatPromptTemplate
 class TicketNode(BaseNode):
     """工单流程节点"""
     
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         """执行工单创建"""
         prompt = ChatPromptTemplate.from_messages([
             ("system", """你是一个工单处理助手。从用户消息中提取工单信息。
@@ -30,7 +30,7 @@ class TicketNode(BaseNode):
         
         history_str = json.dumps(state["conversation_history"], ensure_ascii=False)
         
-        response = await self.llm.ainvoke(
+        response = self.llm.invoke(
             prompt.format_messages(
                 message=state["user_message"],
                 history=history_str

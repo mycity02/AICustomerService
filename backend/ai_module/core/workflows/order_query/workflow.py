@@ -19,18 +19,18 @@ class OrderQueryWorkflow(BaseWorkflow):
         self.list_node = OrderQueryListNode(self.service)
         self.detail_node = OrderQueryDetailNode(self.service)
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         current = OrderQueryState.START
 
         while current != OrderQueryState.END:
             current = next_state(current)
             if current == OrderQueryState.RESOLVE_MODE:
-                state = await self.mode_node.execute(state)
+                state = self.mode_node.execute(state)
             elif current == OrderQueryState.EXECUTE_MODE:
                 if state.get("_order_query_mode") == OrderQueryMode.DETAIL:
-                    state = await self.detail_node.execute(state)
+                    state = self.detail_node.execute(state)
                 else:
-                    state = await self.list_node.execute(state)
+                    state = self.list_node.execute(state)
             elif current == OrderQueryState.CLEANUP:
                 state.pop("_order_query_mode", None)
                 state.pop("_order_query_order_no", None)

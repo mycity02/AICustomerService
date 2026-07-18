@@ -14,13 +14,13 @@ logger = logging.getLogger(__name__)
 class WorkflowExecuteMixin:
     """Workflow and node execution helpers (sync + stream)."""
 
-    async def _safe_save_context(self, state: ConversationState) -> None:
+    def _safe_save_context(self, state: ConversationState) -> None:
         try:
-            await self.save_context_node.execute(state)
+            self.save_context_node.execute(state)
         except Exception:
             logger.warning("Failed to persist conversation context", exc_info=True)
 
-    async def _execute_forced_route(self, state: ConversationState) -> ConversationState:
+    def _execute_forced_route(self, state: ConversationState) -> ConversationState:
         route = state.get("skill_route")
         if not route:
             return state
@@ -28,17 +28,17 @@ class WorkflowExecuteMixin:
         logger.info("Executing forced route=%s", route)
         node = self.handlers.get(route, default=self._get_qa_node())
         try:
-            result_state = await node.execute(state)
+            result_state = node.execute(state)
             state.update(result_state)
         except Exception as exc:
             logger.error("Forced route %s failed: %s", route, exc, exc_info=True)
             state["response"] = "抱歉，处理您的请求时出现了问题，请稍后再试。"
 
         if route != "clarify":
-            await self._safe_save_context(state)
+            self._safe_save_context(state)
         return state
 
-    async def _execute_workflow(
+    def _execute_workflow(
         self,
         workflow_name: str,
         state: ConversationState,
@@ -52,16 +52,16 @@ class WorkflowExecuteMixin:
             return state
 
         try:
-            result_state = await workflow.execute(state)
+            result_state = workflow.execute(state)
             state.update(result_state)
             if save_context:
-                await self._safe_save_context(state)
+                self._safe_save_context(state)
         except Exception as exc:
             logger.error("Workflow %s failed: %s", workflow_name, exc, exc_info=True)
             state["response"] = error_response
         return state
 
-    async def _stream_workflow(
+    def _stream_workflow(
         self,
         workflow_name: str,
         state: ConversationState,
@@ -81,26 +81,26 @@ class WorkflowExecuteMixin:
         try:
             stream_workflow = self.workflows.get_stream(workflow_name)
             if stream_workflow is not None:
-                async for token in stream_workflow.execute_stream(state):
+                for token in stream_workflow.execute_stream(state):
                     yield {"type": "content", "delta": token}
             else:
-                result_state = await workflow.execute(state)
+                result_state = workflow.execute(state)
                 state.update(result_state)
                 if state.get("response"):
                     yield {"type": "content", "delta": state["response"]}
 
             if save_context:
-                await self._safe_save_context(state)
+                self._safe_save_context(state)
         except Exception as exc:
             logger.error("Workflow %s streaming failed: %s", workflow_name, exc, exc_info=True)
             stream_status["failed"] = True
             yield {"type": "content", "delta": error_response}
 
-    async def generate_response(self, state):
+    def generate_response(self, state):
         purchase_flow = state.get("purchase_flow")
         if purchase_flow:
             logger.info("Purchase flow detected step=%s", purchase_flow.get("step"))
-            return await self._execute_workflow(
+            return self._execute_workflow(
                 "purchase_flow",
                 state,
                 error_response="抱歉，购买流程出现了问题，请重新开始。",
@@ -109,7 +109,7 @@ class WorkflowExecuteMixin:
         aftersales_flow = state.get("aftersales_flow")
         if aftersales_flow:
             logger.info("Aftersales flow detected step=%s", aftersales_flow.get("step"))
-            return await self._execute_workflow(
+            return self._execute_workflow(
                 "aftersales_flow",
                 state,
                 error_response="抱歉，售后流程出现了问题，请重新开始。",
@@ -118,29 +118,29 @@ class WorkflowExecuteMixin:
         logger.info("Generating response intent=%s", state.get("intent"))
 
         if self._should_use_conversation_control(state):
-            result_state = await self.conversation_control_node.execute(state)
+            result_state = self.conversation_control_node.execute(state)
             state.update(result_state)
-            await self._safe_save_context(state)
+            self._safe_save_context(state)
             return state
 
         if self._should_clarify(state):
-            result_state = await self._get_clarify_node().execute(state)
+            result_state = self._get_clarify_node().execute(state)
             state.update(result_state)
             return state
 
         if state.get("skill_route"):
-            return await self._execute_forced_route(state)
+            return self._execute_forced_route(state)
 
         if state.get("intent") == INTENT_RECOMMEND:
             logger.info("Recommendation intent routed directly to topic advisor")
-            return await self._execute_workflow(
+            return self._execute_workflow(
                 "topic_advisor",
                 state,
                 error_response="抱歉，处理您的请求时出现了问题，请稍后再试。",
             )
 
         t0 = time.time()
-        state = await self.function_calling_node.execute(state)
+        state = self.function_calling_node.execute(state)
         logger.info(
             "function_calling_node completed in %.2fs tool_used=%s",
             time.time() - t0,
@@ -151,23 +151,23 @@ class WorkflowExecuteMixin:
         node = self.handlers.get(route, default=self._get_qa_node())
 
         try:
-            result_state = await node.execute(state)
+            result_state = node.execute(state)
             state.update(result_state)
         except Exception as exc:
             logger.error("Node %s failed: %s", route, exc, exc_info=True)
             state["response"] = "抱歉，处理您的请求时出现了问题，请稍后再试。"
 
         if route != "clarify":
-            await self._safe_save_context(state)
+            self._safe_save_context(state)
 
         return state
 
-    async def generate_response_stream(self, state):
+    def generate_response_stream(self, state):
         purchase_flow = state.get("purchase_flow")
         if purchase_flow:
             logger.info("Streaming purchase flow step=%s", purchase_flow.get("step"))
             stream_status = {"failed": False}
-            async for event in self._stream_workflow(
+            for event in self._stream_workflow(
                 "purchase_flow",
                 state,
                 error_response="抱歉，购买流程出现了问题，请重新开始。",
@@ -185,7 +185,7 @@ class WorkflowExecuteMixin:
         if aftersales_flow:
             logger.info("Streaming aftersales flow step=%s", aftersales_flow.get("step"))
             stream_status = {"failed": False}
-            async for event in self._stream_workflow(
+            for event in self._stream_workflow(
                 "aftersales_flow",
                 state,
                 error_response="抱歉，售后流程出现了问题，请重新开始。",
@@ -200,16 +200,16 @@ class WorkflowExecuteMixin:
             return
 
         if self._should_use_conversation_control(state):
-            result_state = await self.conversation_control_node.execute(state)
+            result_state = self.conversation_control_node.execute(state)
             state.update(result_state)
             if state.get("response"):
                 yield {"type": "content", "delta": state["response"]}
-            await self._safe_save_context(state)
+            self._safe_save_context(state)
             yield {"type": "end", "quick_actions": state.get("quick_actions")}
             return
 
         if self._should_clarify(state):
-            result_state = await self._get_clarify_node().execute(state)
+            result_state = self._get_clarify_node().execute(state)
             state.update(result_state)
             if state.get("response"):
                 yield {"type": "content", "delta": state["response"]}
@@ -217,7 +217,7 @@ class WorkflowExecuteMixin:
             return
 
         if state.get("skill_route"):
-            result_state = await self._execute_forced_route(state)
+            result_state = self._execute_forced_route(state)
             state.update(result_state)
             if state.get("response"):
                 yield {"type": "content", "delta": state["response"]}
@@ -230,7 +230,7 @@ class WorkflowExecuteMixin:
 
         if state.get("intent") == INTENT_RECOMMEND:
             logger.info("Streaming recommendation via topic advisor")
-            async for event in self._stream_workflow(
+            for event in self._stream_workflow(
                 "topic_advisor",
                 state,
                 error_response="抱歉，处理您的请求时出现了问题，请稍后再试。",
@@ -244,7 +244,7 @@ class WorkflowExecuteMixin:
             return
 
         t0 = time.time()
-        state = await self.function_calling_node.execute(state)
+        state = self.function_calling_node.execute(state)
         logger.info("function_calling_node completed in %.2fs", time.time() - t0)
 
         route = self.router.route_after_function_calling(state)
@@ -253,7 +253,7 @@ class WorkflowExecuteMixin:
         stream_node = self.handlers.get_stream(route)
         if stream_node is not None:
             try:
-                async for token in stream_node.execute_stream(state):
+                for token in stream_node.execute_stream(state):
                     yield {"type": "content", "delta": token}
             except Exception as exc:
                 logger.error("Streaming node %s failed: %s", route, exc, exc_info=True)
@@ -262,7 +262,7 @@ class WorkflowExecuteMixin:
         else:
             node = self.handlers.get(route, default=self._get_qa_node())
             try:
-                result_state = await node.execute(state)
+                result_state = node.execute(state)
                 state.update(result_state)
             except Exception as exc:
                 logger.error("Node %s failed: %s", route, exc, exc_info=True)
@@ -271,7 +271,7 @@ class WorkflowExecuteMixin:
                 yield {"type": "content", "delta": state["response"]}
 
         if route != "clarify":
-            await self._safe_save_context(state)
+            self._safe_save_context(state)
 
         yield {
             "type": "end",

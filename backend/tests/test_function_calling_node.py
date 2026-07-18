@@ -1,11 +1,11 @@
-﻿"""
+"""
 Unit tests for FunctionCallingNode (refactored to use llm.bind_tools)
 """
 import sys
 import os
 import types
 import importlib.util
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -50,7 +50,7 @@ _constants_spec.loader.exec_module(_constants_mod)
 def _make_mock_tool(name):
     t = MagicMock()
     t.name = name
-    t.ainvoke = AsyncMock(return_value={"success": True})
+    t.invoke = MagicMock(return_value={"success": True})
     return t
 
 _mock_tools = [
@@ -141,96 +141,84 @@ class TestFunctionCallingNodeInit:
 
 class TestSkipIntents:
     """Test that skip intents bypass tool calling entirely."""
-
-    @pytest.mark.asyncio
-    async def test_skip_qa_intent(self):
+    def test_skip_qa_intent(self):
         mock_llm = MagicMock()
         mock_llm.bind_tools.return_value = MagicMock()
         node = FunctionCallingNode(mock_llm)
 
         state = _make_state(intent="问答")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["tool_result"] is None
         assert result["tool_used"] is None
-
-    @pytest.mark.asyncio
-    async def test_skip_document_analysis_intent(self):
+    def test_skip_document_analysis_intent(self):
         mock_llm = MagicMock()
         mock_llm.bind_tools.return_value = MagicMock()
         node = FunctionCallingNode(mock_llm)
 
         state = _make_state(intent="文档分析")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["tool_result"] is None
         assert result["tool_used"] is None
-
-    @pytest.mark.asyncio
-    async def test_skip_ticket_intent(self):
+    def test_skip_ticket_intent(self):
         mock_llm = MagicMock()
         mock_llm.bind_tools.return_value = MagicMock()
         node = FunctionCallingNode(mock_llm)
 
         state = _make_state(intent="工单")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["tool_result"] is None
         assert result["tool_used"] is None
-
-    @pytest.mark.asyncio
-    async def test_non_skip_intent_calls_llm(self):
+    def test_non_skip_intent_calls_llm(self):
         mock_llm = MagicMock()
-        mock_llm_with_tools = AsyncMock()
+        mock_llm_with_tools = MagicMock()
         mock_response = MagicMock()
         mock_response.tool_calls = []
-        mock_llm_with_tools.ainvoke.return_value = mock_response
+        mock_llm_with_tools.invoke.return_value = mock_response
         mock_llm.bind_tools.return_value = mock_llm_with_tools
 
         node = FunctionCallingNode(mock_llm)
 
         state = _make_state(intent="订单查询")
-        await node.execute(state)
+        node.execute(state)
 
-        mock_llm_with_tools.ainvoke.assert_called_once()
+        mock_llm_with_tools.invoke.assert_called_once()
 
 
 class TestToolCallParsing:
     """Test that tool_calls from LLM response are parsed and executed."""
-
-    @pytest.mark.asyncio
-    async def test_single_tool_call(self):
+    def test_single_tool_call(self):
         mock_llm = MagicMock()
-        mock_llm_with_tools = AsyncMock()
+        mock_llm_with_tools = MagicMock()
         mock_llm.bind_tools.return_value = mock_llm_with_tools
 
         mock_response = MagicMock()
         mock_response.tool_calls = [
             {"name": "query_order", "args": {"order_no": "ORD123"}}
         ]
-        mock_llm_with_tools.ainvoke.return_value = mock_response
+        mock_llm_with_tools.invoke.return_value = mock_response
 
         node = FunctionCallingNode(mock_llm)
 
         # Replace the tool in tool_map with a fresh mock
         mock_tool = MagicMock()
-        mock_tool.ainvoke = AsyncMock(return_value={"success": True, "order_no": "ORD123"})
+        mock_tool.invoke = MagicMock(return_value={"success": True, "order_no": "ORD123"})
         mock_tool.name = "query_order"
         node.tool_map["query_order"] = mock_tool
         node._refresh_tools = MagicMock()
 
         state = _make_state(intent="订单查询")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["tool_used"] == "query_order"
         assert len(result["tool_result"]) == 1
         assert result["tool_result"][0]["tool"] == "query_order"
         assert result["tool_result"][0]["result"] == {"success": True, "order_no": "ORD123"}
-
-    @pytest.mark.asyncio
-    async def test_multiple_tool_calls(self):
+    def test_multiple_tool_calls(self):
         mock_llm = MagicMock()
-        mock_llm_with_tools = AsyncMock()
+        mock_llm_with_tools = MagicMock()
         mock_llm.bind_tools.return_value = mock_llm_with_tools
 
         mock_response = MagicMock()
@@ -238,19 +226,19 @@ class TestToolCallParsing:
             {"name": "query_order", "args": {"order_no": "ORD123"}},
             {"name": "get_logistics", "args": {"order_no": "ORD123"}},
         ]
-        mock_llm_with_tools.ainvoke.return_value = mock_response
+        mock_llm_with_tools.invoke.return_value = mock_response
 
         node = FunctionCallingNode(mock_llm)
 
         # Mock both tools
         for name in ["query_order", "get_logistics"]:
             mock_tool = MagicMock()
-            mock_tool.ainvoke = AsyncMock(return_value={"success": True})
+            mock_tool.invoke = MagicMock(return_value={"success": True})
             mock_tool.name = name
             node.tool_map[name] = mock_tool
 
         state = _make_state(intent="订单查询")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["tool_used"] == "query_order, get_logistics"
         assert len(result["tool_result"]) == 2
@@ -258,21 +246,19 @@ class TestToolCallParsing:
 
 class TestNoToolCalls:
     """Test behavior when LLM returns no tool_calls."""
-
-    @pytest.mark.asyncio
-    async def test_no_tool_calls_sets_none(self):
+    def test_no_tool_calls_sets_none(self):
         mock_llm = MagicMock()
-        mock_llm_with_tools = AsyncMock()
+        mock_llm_with_tools = MagicMock()
         mock_llm.bind_tools.return_value = mock_llm_with_tools
 
         mock_response = MagicMock()
         mock_response.tool_calls = []
-        mock_llm_with_tools.ainvoke.return_value = mock_response
+        mock_llm_with_tools.invoke.return_value = mock_response
 
         node = FunctionCallingNode(mock_llm)
 
         state = _make_state(intent="商品咨询")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["tool_result"] is None
         assert result["tool_used"] is None
@@ -280,30 +266,28 @@ class TestNoToolCalls:
 
 class TestErrorHandling:
     """Test that exceptions during tool execution are caught and recorded."""
-
-    @pytest.mark.asyncio
-    async def test_tool_execution_error_recorded(self):
+    def test_tool_execution_error_recorded(self):
         mock_llm = MagicMock()
-        mock_llm_with_tools = AsyncMock()
+        mock_llm_with_tools = MagicMock()
         mock_llm.bind_tools.return_value = mock_llm_with_tools
 
         mock_response = MagicMock()
         mock_response.tool_calls = [
             {"name": "query_order", "args": {"order_no": "BAD"}}
         ]
-        mock_llm_with_tools.ainvoke.return_value = mock_response
+        mock_llm_with_tools.invoke.return_value = mock_response
 
         node = FunctionCallingNode(mock_llm)
 
         # Mock tool that raises an exception
         mock_tool = MagicMock()
-        mock_tool.ainvoke = AsyncMock(side_effect=Exception("DB connection failed"))
+        mock_tool.invoke = MagicMock(side_effect=Exception("DB connection failed"))
         mock_tool.name = "query_order"
         node.tool_map["query_order"] = mock_tool
         node._refresh_tools = MagicMock()
 
         state = _make_state(intent="订单查询")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         # Should NOT crash; error should be recorded
         assert result["tool_result"] is not None
@@ -311,40 +295,36 @@ class TestErrorHandling:
         assert "error" in result["tool_result"][0]
         assert "DB connection failed" in result["tool_result"][0]["error"]
         assert result["tool_used"] == "query_order"
-
-    @pytest.mark.asyncio
-    async def test_unknown_tool_name_recorded(self):
+    def test_unknown_tool_name_recorded(self):
         mock_llm = MagicMock()
-        mock_llm_with_tools = AsyncMock()
+        mock_llm_with_tools = MagicMock()
         mock_llm.bind_tools.return_value = mock_llm_with_tools
 
         mock_response = MagicMock()
         mock_response.tool_calls = [
             {"name": "nonexistent_tool", "args": {}}
         ]
-        mock_llm_with_tools.ainvoke.return_value = mock_response
+        mock_llm_with_tools.invoke.return_value = mock_response
 
         node = FunctionCallingNode(mock_llm)
 
         state = _make_state(intent="订单查询")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["tool_result"] is not None
         assert len(result["tool_result"]) == 1
         assert "error" in result["tool_result"][0]
         assert "工具不存在" in result["tool_result"][0]["error"]
-
-    @pytest.mark.asyncio
-    async def test_llm_invocation_error_does_not_crash(self):
+    def test_llm_invocation_error_does_not_crash(self):
         mock_llm = MagicMock()
-        mock_llm_with_tools = AsyncMock()
-        mock_llm_with_tools.ainvoke.side_effect = Exception("LLM timeout")
+        mock_llm_with_tools = MagicMock()
+        mock_llm_with_tools.invoke.side_effect = Exception("LLM timeout")
         mock_llm.bind_tools.return_value = mock_llm_with_tools
 
         node = FunctionCallingNode(mock_llm)
 
         state = _make_state(intent="订单查询")
-        result = await node.execute(state)
+        result = node.execute(state)
 
         # Should gracefully handle the error
         assert result["tool_result"] is None

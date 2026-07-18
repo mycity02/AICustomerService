@@ -6,7 +6,7 @@
 
 ---
 
-**Project:** AI客服系统
+**Project:** 云岫茶坊 AI 茶叶销售系统
 **Generated:** 2026-03-10 15:23:44
 **Category:** AI/Chatbot Platform
 

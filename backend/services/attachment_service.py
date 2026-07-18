@@ -5,7 +5,7 @@ import uuid
 from typing import Any, Dict, Iterable, List
 
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from database.models import Attachment
 from .file_service import FileService
@@ -17,7 +17,7 @@ class AttachmentService:
     def __init__(self):
         self.file_service = FileService()
 
-    async def normalize_attachments(
+    def normalize_attachments(
         self,
         attachments: Iterable[Any],
         user_id: str,
@@ -37,7 +37,7 @@ class AttachmentService:
             if not file_id:
                 raise ValueError("Attachment file_id is required")
 
-            resolved = await self.file_service.resolve_attachment_reference(
+            resolved = self.file_service.resolve_attachment_reference(
                 file_id=file_id,
                 user_id=user_id,
                 session_id=session_id,
@@ -53,16 +53,16 @@ class AttachmentService:
 
         return normalized
 
-    async def save_attachments(
+    def save_attachments(
         self,
-        db: AsyncSession,
+        db: Session,
         message_id: str,
         attachments: Iterable[Any],
         user_id: str,
         session_id: str,
         normalized_attachments: List[Dict[str, Any]] | None = None,
     ) -> List[Attachment]:
-        normalized = normalized_attachments or await self.normalize_attachments(
+        normalized = normalized_attachments or self.normalize_attachments(
             attachments,
             user_id=user_id,
             session_id=session_id,
@@ -82,9 +82,9 @@ class AttachmentService:
             db.add(attachment)
             saved.append(attachment)
 
-        await db.commit()
+        db.commit()
         for attachment in saved:
-            await db.refresh(attachment)
+            db.refresh(attachment)
 
         return saved
 
@@ -104,8 +104,8 @@ class AttachmentService:
         }
         return fallback or mime_types.get((file_type or "").lower(), "application/octet-stream")
 
-    async def get_message_attachments(self, db: AsyncSession, message_id: str) -> List[Attachment]:
-        result = await db.execute(
+    def get_message_attachments(self, db: Session, message_id: str) -> List[Attachment]:
+        result = db.execute(
             select(Attachment).where(Attachment.message_id == message_id).order_by(Attachment.created_at)
         )
         return result.scalars().all()

@@ -6,7 +6,7 @@ without forcing the business layer to depend directly on ``@tool``.
 """
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable, Iterable, Optional
+from typing import Any, Callable, Iterable, Optional
 
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
@@ -28,7 +28,7 @@ PLUGIN_ALIASES = {
     "get_personalized_recommendations": {"recommend_products"},
 }
 
-ToolExecutor = Callable[[Optional[dict], "LangChainToolPlugin"], Awaitable[Any]]
+ToolExecutor = Callable[[Optional[dict], "LangChainToolPlugin"], Any]
 
 
 class CurrentUserInfoInput(BaseModel):
@@ -76,7 +76,7 @@ class LangChainToolPlugin(AIPlugin):
         adapter=None,
         args_schema=None,
         description: Optional[str] = None,
-        executor: Optional[Callable[..., Awaitable[Any]]] = None,
+        executor: Optional[Callable[..., Any]] = None,
     ):
         super().__init__(adapter=adapter)
         self._tool = tool
@@ -110,21 +110,21 @@ class LangChainToolPlugin(AIPlugin):
             return args_schema.schema()
         return super().get_schema()
 
-    async def execute(self, execution_context: Optional[dict] = None, **kwargs):
+    def execute(self, execution_context: Optional[dict] = None, **kwargs):
         if self._executor is not None:
-            return await self._executor(
+            return self._executor(
                 execution_context=execution_context,
                 plugin=self,
                 **kwargs,
             )
-        return await self._tool.ainvoke(kwargs)
+        return self._tool.invoke(kwargs)
 
     def to_langchain_tool(self, execution_context: Optional[dict] = None):
-        async def _bound_executor(**kwargs):
-            return await self.execute(execution_context=execution_context, **kwargs)
+        def _bound_executor(**kwargs):
+            return self.execute(execution_context=execution_context, **kwargs)
 
         return StructuredTool.from_function(
-            coroutine=_bound_executor,
+            func=_bound_executor,
             name=self.name,
             description=self.description,
             args_schema=self._args_schema,
@@ -142,7 +142,7 @@ class LangChainToolPlugin(AIPlugin):
         return metadata
 
 
-async def _execute_query_order(
+def _execute_query_order(
     *,
     execution_context: Optional[dict],
     plugin: LangChainToolPlugin,
@@ -151,13 +151,13 @@ async def _execute_query_order(
     user_id = _resolve_scoped_user_id(execution_context, required=True)
 
     if plugin.adapter and hasattr(plugin.adapter, "get_order_by_no"):
-        order = await plugin.adapter.get_order_by_no(order_no, user_id=user_id)
+        order = plugin.adapter.get_order_by_no(order_no, user_id=user_id)
     else:
         from database.connection import get_db_context
         from services.order_service import OrderService
 
-        async with get_db_context() as db:
-            order = await OrderService(db).get_order_by_no(order_no, user_id=user_id)
+        with get_db_context() as db:
+            order = OrderService(db).get_order_by_no(order_no, user_id=user_id)
 
     if not order:
         return {
@@ -178,13 +178,13 @@ async def _execute_query_order(
     }
 
 
-async def _execute_get_logistics(
+def _execute_get_logistics(
     *,
     execution_context: Optional[dict],
     plugin: LangChainToolPlugin,
     order_no: str,
 ):
-    query_result = await _execute_query_order(
+    query_result = _execute_query_order(
         execution_context=execution_context,
         plugin=plugin,
         order_no=order_no,
@@ -197,28 +197,28 @@ async def _execute_get_logistics(
         return {
             "success": True,
             "order_no": order_no,
-            "delivery_type": "digital",
-            "message": "数字商品已在线交付，请在订单详情中查看下载链接。",
-            "status": "已交付",
+            "delivery_type": "physical",
+            "message": "茶品订单已签收，如商品或包装有问题请及时申请售后。",
+            "status": "已签收",
         }
     if status == "paid":
         return {
             "success": True,
             "order_no": order_no,
-            "delivery_type": "digital",
-            "message": "订单已支付，卖家正在准备交付文件。",
-            "status": "准备中",
+            "delivery_type": "physical",
+            "message": "订单已支付，茶坊正在备货并安排发货。",
+            "status": "备货中",
         }
     return {
         "success": True,
         "order_no": order_no,
-        "delivery_type": "digital",
+        "delivery_type": "physical",
         "message": f"订单状态：{status}",
         "status": status,
     }
 
 
-async def _execute_get_user_info(
+def _execute_get_user_info(
     *,
     execution_context: Optional[dict],
     plugin: LangChainToolPlugin,
@@ -226,14 +226,14 @@ async def _execute_get_user_info(
     user_id = _resolve_scoped_user_id(execution_context, required=True)
 
     if plugin.adapter and hasattr(plugin.adapter, "get_user_info"):
-        user = await plugin.adapter.get_user_info(user_id)
+        user = plugin.adapter.get_user_info(user_id)
     else:
         from database.connection import get_db_context
         from database.models import User
         from sqlalchemy import select
 
-        async with get_db_context() as db:
-            result = await db.execute(select(User).where(User.id == user_id))
+        with get_db_context() as db:
+            result = db.execute(select(User).where(User.id == user_id))
             db_user = result.scalar_one_or_none()
             user = None
             if db_user:
@@ -258,7 +258,7 @@ async def _execute_get_user_info(
     }
 
 
-async def _execute_get_personalized_recommendations(
+def _execute_get_personalized_recommendations(
     *,
     execution_context: Optional[dict],
     plugin: LangChainToolPlugin,
@@ -267,14 +267,14 @@ async def _execute_get_personalized_recommendations(
     user_id = _resolve_scoped_user_id(execution_context, required=True)
 
     if plugin.adapter and hasattr(plugin.adapter, "get_personalized_recommendations"):
-        recommendations = await plugin.adapter.get_personalized_recommendations(user_id, limit=limit)
+        recommendations = plugin.adapter.get_personalized_recommendations(user_id, limit=limit)
     else:
         from database.connection import get_db_context
         from services.recommendation_service import RecommendationService
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             rec_service = RecommendationService(db)
-            recommendations = await rec_service.get_personalized_recommendations(
+            recommendations = rec_service.get_personalized_recommendations(
                 user_id=user_id,
                 limit=limit,
             )
@@ -304,7 +304,7 @@ def _build_specialized_plugins() -> dict[str, LangChainToolPlugin]:
         ),
         get_logistics.name: LangChainToolPlugin(
             get_logistics,
-            description="查询当前登录用户订单的交付或物流状态。",
+            description="查询当前登录用户茶叶订单的备货、配送或签收状态。",
             executor=_execute_get_logistics,
         ),
         get_user_info.name: LangChainToolPlugin(

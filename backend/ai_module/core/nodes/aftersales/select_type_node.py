@@ -8,7 +8,7 @@ from ai_module.core.state import ConversationState
 class AftersalesSelectTypeNode(BaseNode):
     """Step 2: choose aftersales type."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         flow_data = state.get("aftersales_flow") or {}
         order_id = flow_data.get("order_id")
         order_status = flow_data.get("status", "paid")

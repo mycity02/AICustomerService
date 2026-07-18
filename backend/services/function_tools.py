@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 
 @tool
-async def query_order(order_no: str) -> dict:
+def query_order(order_no: str) -> dict:
     """查询订单详情和状态。可以通过订单号查询订单信息、商品列表、支付状态等。
 
     Args:
@@ -22,9 +22,9 @@ async def query_order(order_no: str) -> dict:
     from database.connection import get_db_context
     from services.order_service import OrderService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         order_service = OrderService(db)
-        order = await order_service.get_order_by_no(order_no)
+        order = order_service.get_order_by_no(order_no)
 
         if not order:
             return {
@@ -46,20 +46,20 @@ async def query_order(order_no: str) -> dict:
 
 
 @tool
-async def search_products(keyword: str, max_price: float = None,
+def search_products(keyword: str, max_price: float = None,
                           difficulty: str = None, tech_stack: list[str] = None) -> dict:
-    """搜索毕业设计商品。支持关键词搜索、价格筛选、难度筛选、技术栈筛选等。
+    """搜索茶叶商品。支持关键词、价格、口感浓度及风味标签筛选。
 
     Args:
-        keyword: 搜索关键词，如：Vue、Python、管理系统
+        keyword: 搜索关键词，如：龙井、乌龙茶、花香、送礼
         max_price: 最高价格（元）
-        difficulty: 难度等级：easy(简单)、medium(中等)、hard(困难)
-        tech_stack: 技术栈列表，如：['Vue', 'Python', 'MySQL']
+        difficulty: 口感浓度：easy(清新)、medium(醇香)、hard(浓醇)
+        tech_stack: 风味标签列表，如：['花香', '鲜爽', '福建安溪']（内部兼容字段名）
     """
     from database.connection import get_db_context
     from services.product_service import ProductService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         product_service = ProductService(db)
 
         # 构建搜索参数
@@ -77,7 +77,7 @@ async def search_products(keyword: str, max_price: float = None,
         if tech_stack:
             filters["tech_stack"] = tech_stack
 
-        result = await product_service.search_products(**filters)
+        result = product_service.search_products(**filters)
         products = result.get("products", [])
 
         return {
@@ -100,7 +100,7 @@ async def search_products(keyword: str, max_price: float = None,
 
 
 @tool
-async def get_user_info(user_id: str) -> dict:
+def get_user_info(user_id: str) -> dict:
     """获取用户基本信息，包括用户名、邮箱、注册时间等。
 
     Args:
@@ -110,8 +110,8 @@ async def get_user_info(user_id: str) -> dict:
     from database.models import User
     from sqlalchemy import select
 
-    async with get_db_context() as db:
-        result = await db.execute(
+    with get_db_context() as db:
+        result = db.execute(
             select(User).where(User.id == user_id)
         )
         user = result.scalar_one_or_none()
@@ -133,7 +133,7 @@ async def get_user_info(user_id: str) -> dict:
 
 
 @tool
-async def check_inventory(product_id: str) -> dict:
+def check_inventory(product_id: str) -> dict:
     """检查商品库存状态。返回商品是否有货、库存数量等信息。
 
     Args:
@@ -142,9 +142,9 @@ async def check_inventory(product_id: str) -> dict:
     from database.connection import get_db_context
     from services.product_service import ProductService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         product_service = ProductService(db)
-        product = await product_service.get_product(product_id)
+        product = product_service.get_product(product_id)
 
         if not product:
             return {
@@ -152,7 +152,7 @@ async def check_inventory(product_id: str) -> dict:
                 "error": "商品不存在"
             }
 
-        # 对于数字商品，库存通常是无限的
+        # 茶叶为实物商品，当前演示环境使用默认库存
         # 这里简化处理，实际可以根据业务需求调整
         stock = product.get("stock", 999)
         in_stock = stock > 0
@@ -168,8 +168,8 @@ async def check_inventory(product_id: str) -> dict:
 
 
 @tool
-async def get_logistics(order_no: str) -> dict:
-    """查询订单的物流信息。返回物流状态、物流公司、快递单号等。注意：数字商品通常没有物流信息。
+def get_logistics(order_no: str) -> dict:
+    """查询订单的物流信息。返回物流状态、物流公司、快递单号等。用于查询茶叶订单的备货、发货与签收状态。
 
     Args:
         order_no: 订单号
@@ -177,9 +177,9 @@ async def get_logistics(order_no: str) -> dict:
     from database.connection import get_db_context
     from services.order_service import OrderService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         order_service = OrderService(db)
-        order = await order_service.get_order_by_no(order_no)
+        order = order_service.get_order_by_no(order_no)
 
         if not order:
             return {
@@ -187,38 +187,38 @@ async def get_logistics(order_no: str) -> dict:
                 "error": "订单不存在"
             }
 
-        # 对于数字商品，通常是在线交付，没有传统物流
-        # 这里返回交付状态
+        # 根据订单状态返回茶品备货、配送或签收说明
+        # 当前订单模型复用既有状态字段
         status = order["status"]
 
         if status == "delivered":
             return {
                 "success": True,
                 "order_no": order_no,
-                "delivery_type": "digital",
-                "message": "数字商品已在线交付，请在订单详情中查看下载链接。",
-                "status": "已交付"
+                "delivery_type": "physical",
+                "message": "茶品订单已签收，如商品或包装有问题请及时申请售后。",
+                "status": "已签收"
             }
         elif status == "paid":
             return {
                 "success": True,
                 "order_no": order_no,
-                "delivery_type": "digital",
-                "message": "订单已支付，卖家正在准备交付文件。",
-                "status": "准备中"
+                "delivery_type": "physical",
+                "message": "订单已支付，茶坊正在备货并安排发货。",
+                "status": "备货中"
             }
         else:
             return {
                 "success": True,
                 "order_no": order_no,
-                "delivery_type": "digital",
+                "delivery_type": "physical",
                 "message": f"订单状态：{status}",
                 "status": status
             }
 
 
 @tool
-async def calculate_price(product_ids: list[str], coupon_code: str = None) -> dict:
+def calculate_price(product_ids: list[str], coupon_code: str = None) -> dict:
     """计算商品总价。支持多个商品、优惠券等。返回原价、折扣、最终价格等信息。
 
     Args:
@@ -228,14 +228,14 @@ async def calculate_price(product_ids: list[str], coupon_code: str = None) -> di
     from database.connection import get_db_context
     from services.product_service import ProductService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         product_service = ProductService(db)
 
         total_price = 0.0
         products_info = []
 
         for product_id in product_ids:
-            product = await product_service.get_product(product_id)
+            product = product_service.get_product(product_id)
             if product:
                 price = float(product["price"])
                 total_price += price
@@ -264,8 +264,8 @@ async def calculate_price(product_ids: list[str], coupon_code: str = None) -> di
 
 
 @tool
-async def get_personalized_recommendations(user_id: str, limit: int = 5) -> dict:
-    """基于用户浏览历史获取个性化商品推荐。该工具会分析用户近期浏览过的商品，根据技术栈偏好推荐相关商品。
+def get_personalized_recommendations(user_id: str, limit: int = 5) -> dict:
+    """基于用户浏览历史获取个性化商品推荐。该工具会分析用户近期浏览过的商品，根据茶类、产地与风味标签偏好推荐相关茶品。
 
     Args:
         user_id: 用户的唯一标识ID
@@ -275,16 +275,16 @@ async def get_personalized_recommendations(user_id: str, limit: int = 5) -> dict
     from database.connection import get_db_context
     from services.recommendation_service import RecommendationService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         rec_service = RecommendationService(db)
         
-        recommendations = await rec_service.get_personalized_recommendations(
+        recommendations = rec_service.get_personalized_recommendations(
             user_id=user_id,
             limit=limit
         )
         
         if not recommendations:
-            popular = await rec_service.get_popular_products(limit=limit)
+            popular = rec_service.get_popular_products(limit=limit)
             return {
                 "success": True,
                 "message": "暂无个性化推荐，为您推荐热门商品",
@@ -307,22 +307,22 @@ all_tools = [query_order, search_products, get_user_info,
              get_personalized_recommendations]
 
 
-# ==================== 智能选题助手工具 ====================
+# ==================== AI 选茶顾问工具（接口名保持兼容） ====================
 
 @tool
-async def search_projects(keyword: str, max_price: float = None,
+def search_projects(keyword: str, max_price: float = None,
                           user_level: str = None) -> dict:
-    """搜索毕业设计项目。支持按关键词、预算、难度搜索。
+    """搜索茶叶商品。工具名保持兼容，支持按关键词、预算与口感浓度搜索。
 
     Args:
-        keyword: 搜索关键词，如：医疗管理、在线问诊、图书管理系统
+        keyword: 搜索关键词，如：西湖龙井、花香、乌龙茶、送礼
         max_price: 最高预算（元），如：500
-        user_level: 用户水平，用于筛选合适难度：beginner(初学者)、intermediate(中级)、advanced(高级)
+        user_level: 口感偏好兼容参数：beginner(清新)、intermediate(醇香)、advanced(浓醇)
     """
     from database.connection import get_db_context
     from services.product_service import ProductService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         product_service = ProductService(db)
 
         filters = {
@@ -343,7 +343,7 @@ async def search_projects(keyword: str, max_price: float = None,
             }
             filters["difficulty"] = level_map.get(user_level)
 
-        result = await product_service.search_products(**filters)
+        result = product_service.search_products(**filters)
         products = result.get("products", [])
 
         return {
@@ -369,23 +369,23 @@ async def search_projects(keyword: str, max_price: float = None,
 
 
 @tool
-async def get_project_detail(project_id: str) -> dict:
-    """获取毕设项目详情。包括完整的技术栈、功能模块、难度等级、价格等。
+def get_project_detail(project_id: str) -> dict:
+    """获取茶叶商品详情，包括产地风味标签、口感浓度、价格与商品描述。
 
     Args:
-        project_id: 项目ID
+        project_id: 茶品ID（兼容现有参数名）
     """
     from database.connection import get_db_context
     from services.product_service import ProductService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         product_service = ProductService(db)
-        product = await product_service.get_product(project_id)
+        product = product_service.get_product(project_id)
 
         if not product:
             return {
                 "success": False,
-                "error": "项目不存在"
+                "error": "茶品不存在"
             }
 
         return {
@@ -399,29 +399,28 @@ async def get_project_detail(project_id: str) -> dict:
             "difficulty": product.get("difficulty", ""),
             "description": product.get("description", ""),
             "features": product.get("features", []),
-            "requirements": product.get("requirements", []),
-            "has_applet": "小程序" in str(product.get("tech_stack", [])),
-            "has_admin_panel": "管理后台" in str(product.get("description", "")),
-            "is_前后端分离": "前后端分离" in str(product.get("description", ""))
+            "tea_tags": product.get("tech_stack", []),
+            "taste_profile": product.get("difficulty", ""),
+            "category": product.get("category", {})
         }
 
 
 @tool
-async def compare_projects(project_ids: list[str]) -> dict:
-    """对比多个毕设项目的技术栈、难度、价格，帮助用户选择。
+def compare_projects(project_ids: list[str]) -> dict:
+    """对比多款茶叶的风味标签、口感浓度与价格，帮助顾客选择。
 
     Args:
-        project_ids: 项目ID列表，如：["id1", "id2", "id3"]
+        project_ids: 茶品ID列表（兼容现有参数名），如：["id1", "id2", "id3"]
     """
     from database.connection import get_db_context
     from services.product_service import ProductService
 
-    async with get_db_context() as db:
+    with get_db_context() as db:
         product_service = ProductService(db)
 
         projects = []
         for pid in project_ids:
-            product = await product_service.get_product(pid)
+            product = product_service.get_product(pid)
             if product:
                 projects.append({
                     "id": pid,
@@ -437,7 +436,7 @@ async def compare_projects(project_ids: list[str]) -> dict:
         if not projects:
             return {
                 "success": False,
-                "error": "未找到任何项目"
+                "error": "未找到任何茶品"
             }
 
         min_price = min(p["price"] for p in projects)
@@ -452,45 +451,35 @@ async def compare_projects(project_ids: list[str]) -> dict:
 
 
 @tool
-async def check_tech_stack_match(project_id: str, user_skills: list[str]) -> dict:
-    """检查用户技术能力是否匹配项目要求。
+def check_tech_stack_match(project_id: str, user_skills: list[str]) -> dict:
+    """匹配顾客风味偏好与茶品标签，工具名和参数名保持向后兼容。
 
     Args:
-        project_id: 项目ID
-        user_skills: 用户掌握的技术列表，如：["Java", "Spring Boot", "Vue", "MySQL"]
+        project_id: 茶品ID
+        user_skills: 顾客偏好标签，如：["花香", "清新", "乌龙茶"]
     """
     from database.connection import get_db_context
     from services.product_service import ProductService
 
-    async with get_db_context() as db:
-        product_service = ProductService(db)
-        product = await product_service.get_product(project_id)
-
+    with get_db_context() as db:
+        product = ProductService(db).get_product(project_id)
         if not product:
-            return {
-                "success": False,
-                "error": "项目不存在"
-            }
+            return {"success": False, "error": "茶品不存在"}
 
-        project_tech = [t.strip().lower() for t in product.get("tech_stack", [])]
-        user_skills_lower = [s.strip().lower() for s in user_skills]
-
-        matched = []
-        missing = []
-        for tech in project_tech:
-            if any(user_skill in tech or tech in user_skill for user_skill in user_skills_lower):
-                matched.append(tech)
-            else:
-                missing.append(tech)
-
-        match_rate = len(matched) / len(project_tech) if project_tech else 0
+        product_tags = [tag.strip().lower() for tag in product.get("tech_stack", [])]
+        preference_tags = [tag.strip().lower() for tag in user_skills]
+        matched = [
+            tag for tag in product_tags
+            if any(preference in tag or tag in preference for preference in preference_tags)
+        ]
+        match_rate = len(matched) / len(preference_tags) if preference_tags else 0
 
         if match_rate >= 0.7:
-            level = "完全匹配"
+            level = "高度匹配"
         elif match_rate >= 0.4:
             level = "部分匹配"
         else:
-            level = "不匹配"
+            level = "可进一步了解"
 
         return {
             "success": True,
@@ -498,9 +487,9 @@ async def check_tech_stack_match(project_id: str, user_skills: list[str]) -> dic
             "title": product["title"],
             "match_level": level,
             "match_rate": round(match_rate * 100, 1),
-            "matched_tech": matched,
-            "missing_tech": missing,
-            "suggestion": f"该项目需要 {', '.join(missing)} 技术，建议提前学习" if missing else "您已具备该项目所需技术基础！"
+            "matched_tags": matched,
+            "product_tags": product_tags,
+            "suggestion": "这款茶与您的偏好较匹配" if matched else "可以补充喜欢的香型、口感或茶类，我再帮您判断",
         }
 
 

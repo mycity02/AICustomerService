@@ -1,26 +1,24 @@
 """
 初始化测试数据脚本
 """
-import asyncio
 import uuid
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from database.connection import engine, Base
 from database.models import User, Category, Product, ProductDifficulty, ProductStatus
 from services.auth_service import AuthService
 from datetime import datetime
+from migrate_tea_catalog import CATEGORY_SPECS, TEA_PRODUCTS
 
 auth_service = AuthService()
 
 
-async def init_database():
+def init_database():
     """初始化数据库表"""
-    async with engine.begin() as conn:
-        # 创建所有表
-        await conn.run_sync(Base.metadata.create_all)
+    Base.metadata.create_all(bind=engine)
     print("✅ 数据库表创建成功")
 
 
-async def create_test_users(session: AsyncSession):
+def create_test_users(session: Session):
     """创建测试用户"""
     users_data = [
         {"username": "admin", "password": "admin123", "email": "admin@example.com", "role": "admin"},
@@ -33,7 +31,7 @@ async def create_test_users(session: AsyncSession):
     for user_data in users_data:
         # 检查用户是否已存在
         from sqlalchemy import select
-        result = await session.execute(
+        result = session.execute(
             select(User).where(User.username == user_data["username"])
         )
         existing_user = result.scalar_one_or_none()
@@ -55,22 +53,26 @@ async def create_test_users(session: AsyncSession):
             created_users[user_data["username"]] = existing_user
             print(f"ℹ️  用户已存在: {user_data['username']}")
     
-    await session.commit()
+    session.commit()
     return created_users
 
 
-async def create_test_categories(session: AsyncSession):
+def create_test_categories(session: Session):
     """创建测试分类"""
     categories_data = [
-        {"name": "计算机类", "description": "计算机相关毕业设计", "icon": "computer", "sort_order": 1},
-        {"name": "电子类", "description": "电子工程相关毕业设计", "icon": "electronics", "sort_order": 2},
-        {"name": "管理类", "description": "管理系统相关毕业设计", "icon": "management", "sort_order": 3},
+        {
+            "name": name,
+            "description": description,
+            "icon": icon,
+            "sort_order": sort_order,
+        }
+        for name, description, icon, sort_order in CATEGORY_SPECS
     ]
-    
+
     created_categories = {}
     for cat_data in categories_data:
         from sqlalchemy import select
-        result = await session.execute(
+        result = session.execute(
             select(Category).where(Category.name == cat_data["name"])
         )
         existing_cat = result.scalar_one_or_none()
@@ -90,146 +92,36 @@ async def create_test_categories(session: AsyncSession):
             created_categories[cat_data["name"]] = existing_cat
             print(f"ℹ️  分类已存在: {cat_data['name']}")
     
-    await session.commit()
+    session.commit()
     return created_categories
 
 
-async def create_test_products(session: AsyncSession, users: dict, categories: dict):
+def create_test_products(session: Session, users: dict, categories: dict):
     """创建测试商品"""
+    sellers = ["seller1", "seller1", "seller2", "seller2", "seller1", "seller1", "seller2", "seller1"]
     products_data = [
         {
-            "title": "基于Vue3的在线商城系统",
-            "description": "完整的电商平台，包含前后端代码、数据库设计、部署文档。技术栈：Vue3 + TypeScript + FastAPI + MySQL。功能包括：用户注册登录、商品浏览、购物车、订单管理、支付集成、后台管理等。",
-            "price": 29900,  # 299.00元，存储为分
-            "original_price": 39900,
-            "cover_image": "https://picsum.photos/400/300?random=1",
-            "tech_stack": ["Vue3", "TypeScript", "FastAPI", "MySQL"],
-            "difficulty": ProductDifficulty.MEDIUM,
+            "title": spec["title"],
+            "description": spec["description"],
+            "price": spec["price"],
+            "original_price": spec["original_price"],
+            "cover_image": None,
+            "tech_stack": spec["tags"],
+            "difficulty": spec["taste"],
             "status": ProductStatus.PUBLISHED,
-            "seller": "seller1",
-            "category": "计算机类",
-            "view_count": 1234,
-            "sales_count": 156,
-            "rating": 480,  # 4.80，存储为 rating * 100
-            "review_count": 89
-        },
-        {
-            "title": "Python数据分析系统",
-            "description": "基于Python的数据分析平台，包含数据采集、清洗、可视化等功能。技术栈：Python + Pandas + Matplotlib + Django。支持多种数据源导入，提供丰富的图表展示。",
-            "price": 19900,
-            "original_price": 29900,
-            "cover_image": "https://picsum.photos/400/300?random=2",
-            "tech_stack": ["Python", "Pandas", "Matplotlib", "Django"],
-            "difficulty": ProductDifficulty.EASY,
-            "status": ProductStatus.PUBLISHED,
-            "seller": "seller1",
-            "category": "计算机类",
-            "view_count": 856,
-            "sales_count": 98,
-            "rating": 460,
-            "review_count": 67
-        },
-        {
-            "title": "React Native移动应用",
-            "description": "跨平台移动应用开发，包含iOS和Android版本。技术栈：React Native + Redux + Node.js。实现了用户认证、数据同步、推送通知等核心功能。",
-            "price": 39900,
-            "original_price": 49900,
-            "cover_image": "https://picsum.photos/400/300?random=3",
-            "tech_stack": ["React Native", "Redux", "Node.js"],
-            "difficulty": ProductDifficulty.HARD,
-            "status": ProductStatus.PUBLISHED,
-            "seller": "seller2",
-            "category": "计算机类",
-            "view_count": 2341,
-            "sales_count": 234,
-            "rating": 490,
-            "review_count": 178
-        },
-        {
-            "title": "企业人事管理系统",
-            "description": "完整的人事管理系统，包含员工管理、考勤、薪资等模块。技术栈：Spring Boot + Vue + MySQL。支持组织架构管理、权限控制、报表导出等功能。",
-            "price": 24900,
-            "original_price": 34900,
-            "cover_image": "https://picsum.photos/400/300?random=4",
-            "tech_stack": ["Spring Boot", "Vue", "MySQL"],
-            "difficulty": ProductDifficulty.MEDIUM,
-            "status": ProductStatus.PUBLISHED,
-            "seller": "seller2",
-            "category": "管理类",
-            "view_count": 1567,
-            "sales_count": 123,
-            "rating": 470,
-            "review_count": 95
-        },
-        {
-            "title": "智能家居控制系统",
-            "description": "基于物联网的智能家居系统，包含硬件设计和软件开发。技术栈：Arduino + Python + MQTT。可控制灯光、温度、安防等设备，支持语音控制和远程管理。",
-            "price": 34900,
-            "original_price": 44900,
-            "cover_image": "https://picsum.photos/400/300?random=5",
-            "tech_stack": ["Arduino", "Python", "MQTT"],
-            "difficulty": ProductDifficulty.HARD,
-            "status": ProductStatus.PUBLISHED,
-            "seller": "seller1",
-            "category": "电子类",
-            "view_count": 987,
-            "sales_count": 67,
-            "rating": 450,
-            "review_count": 45
-        },
-        {
-            "title": "微信小程序商城",
-            "description": "完整的微信小程序电商解决方案，包含商品展示、购物车、订单、支付等功能。技术栈：微信小程序 + Node.js + MongoDB。",
-            "price": 27900,
-            "original_price": 37900,
-            "cover_image": "https://picsum.photos/400/300?random=6",
-            "tech_stack": ["微信小程序", "Node.js", "MongoDB"],
-            "difficulty": ProductDifficulty.MEDIUM,
-            "status": ProductStatus.PUBLISHED,
-            "seller": "seller1",
-            "category": "计算机类",
-            "view_count": 1456,
-            "sales_count": 189,
-            "rating": 475,
-            "review_count": 112
-        },
-        {
-            "title": "在线教育平台",
-            "description": "功能完善的在线教育系统，支持视频课程、直播教学、作业提交、考试测评等。技术栈：Vue3 + Spring Boot + MySQL + Redis。",
-            "price": 35900,
-            "original_price": 45900,
-            "cover_image": "https://picsum.photos/400/300?random=7",
-            "tech_stack": ["Vue3", "Spring Boot", "MySQL", "Redis"],
-            "difficulty": ProductDifficulty.HARD,
-            "status": ProductStatus.PUBLISHED,
-            "seller": "seller2",
-            "category": "管理类",
-            "view_count": 2103,
-            "sales_count": 267,
-            "rating": 485,
-            "review_count": 201
-        },
-        {
-            "title": "图书管理系统",
-            "description": "简洁实用的图书管理系统，包含图书借阅、归还、查询、统计等功能。技术栈：Java + JSP + MySQL。适合初学者学习。",
-            "price": 15900,
-            "original_price": 25900,
-            "cover_image": "https://picsum.photos/400/300?random=8",
-            "tech_stack": ["Java", "JSP", "MySQL"],
-            "difficulty": ProductDifficulty.EASY,
-            "status": ProductStatus.PUBLISHED,
-            "seller": "seller1",
-            "category": "管理类",
-            "view_count": 678,
-            "sales_count": 87,
-            "rating": 440,
-            "review_count": 56
+            "seller": sellers[index],
+            "category": spec["category"],
+            "view_count": spec["view_count"],
+            "sales_count": spec["sales_count"],
+            "rating": spec["rating"],
+            "review_count": spec["review_count"],
         }
+        for index, spec in enumerate(TEA_PRODUCTS)
     ]
-    
+
     for prod_data in products_data:
         from sqlalchemy import select
-        result = await session.execute(
+        result = session.execute(
             select(Product).where(Product.title == prod_data["title"])
         )
         existing_prod = result.scalar_one_or_none()
@@ -257,27 +149,27 @@ async def create_test_products(session: AsyncSession, users: dict, categories: d
         else:
             print(f"ℹ️  商品已存在: {prod_data['title']}")
     
-    await session.commit()
+    session.commit()
 
 
-async def main():
+def main():
     """主函数"""
     print("开始初始化数据库...")
     
     # 初始化数据库表
-    await init_database()
+    init_database()
     
     # 创建会话
-    from database.connection import async_session
-    async with async_session() as session:
+    from database.connection import db_session
+    with db_session() as session:
         # 创建测试用户
-        users = await create_test_users(session)
+        users = create_test_users(session)
         
         # 创建测试分类
-        categories = await create_test_categories(session)
+        categories = create_test_categories(session)
         
         # 创建测试商品
-        await create_test_products(session, users, categories)
+        create_test_products(session, users, categories)
     
     print("\n✅ 所有测试数据初始化完成！")
     print("\n可用的测试账户：")
@@ -288,4 +180,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

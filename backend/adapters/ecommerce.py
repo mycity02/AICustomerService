@@ -1,6 +1,6 @@
 """
 电商业务适配器
-适配电商类业务系统（如毕业设计商城）
+适配电商类业务系统（当前默认业务为茶叶零售）
 """
 from typing import Dict, Any, List, Optional
 from .base import BusinessAdapter
@@ -9,12 +9,12 @@ from .base import BusinessAdapter
 class EcommerceAdapter(BusinessAdapter):
     """电商业务适配器"""
     
-    async def get_user_info(self, user_id: str) -> Dict[str, Any]:
+    def get_user_info(self, user_id: str) -> Dict[str, Any]:
         """获取用户信息"""
         # 如果配置了外部API，调用外部系统
         if self.api_base_url:
             try:
-                response = await self.call_business_api(
+                response = self.call_business_api(
                     f"/api/users/{user_id}",
                     method="GET"
                 )
@@ -27,8 +27,8 @@ class EcommerceAdapter(BusinessAdapter):
         from database.models import User
         from sqlalchemy import select
         
-        async with get_db_context() as db:
-            result = await db.execute(
+        with get_db_context() as db:
+            result = db.execute(
                 select(User).where(User.id == user_id)
             )
             user = result.scalar_one_or_none()
@@ -44,7 +44,7 @@ class EcommerceAdapter(BusinessAdapter):
                 "extra": {}
             }
     
-    async def query_orders(self, user_id: str, filters: Optional[Dict] = None) -> List[Dict]:
+    def query_orders(self, user_id: str, filters: Optional[Dict] = None) -> List[Dict]:
         """查询订单"""
         if self.api_base_url:
             try:
@@ -52,7 +52,7 @@ class EcommerceAdapter(BusinessAdapter):
                 if filters:
                     params.update(filters)
                 
-                response = await self.call_business_api(
+                response = self.call_business_api(
                     "/api/orders",
                     method="GET",
                     params=params
@@ -65,9 +65,9 @@ class EcommerceAdapter(BusinessAdapter):
         from database.connection import get_db_context
         from services.order_service import OrderService
         
-        async with get_db_context() as db:
+        with get_db_context() as db:
             order_service = OrderService(db)
-            result = await order_service.list_orders(
+            result = order_service.list_orders(
                 user_id=user_id,
                 page=1,
                 page_size=10
@@ -76,7 +76,7 @@ class EcommerceAdapter(BusinessAdapter):
             orders = result.get("items", [])
             return [self._normalize_order(order) for order in orders]
 
-    async def get_order_by_no(self, order_no: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_order_by_no(self, order_no: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Query a single order by order number."""
         if self.api_base_url:
             try:
@@ -84,7 +84,7 @@ class EcommerceAdapter(BusinessAdapter):
                 if user_id:
                     params["user_id"] = user_id
 
-                response = await self.call_business_api(
+                response = self.call_business_api(
                     "/api/orders/detail",
                     method="GET",
                     params=params
@@ -102,11 +102,11 @@ class EcommerceAdapter(BusinessAdapter):
         from database.connection import get_db_context
         from services.order_service import OrderService
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             order_service = OrderService(db)
-            return await order_service.get_order_by_no(order_no, user_id=user_id)
+            return order_service.get_order_by_no(order_no, user_id=user_id)
     
-    async def search_products(self, keyword: str, filters: Optional[Dict] = None) -> List[Dict]:
+    def search_products(self, keyword: str, filters: Optional[Dict] = None) -> List[Dict]:
         """搜索商品"""
         if self.api_base_url:
             try:
@@ -114,7 +114,7 @@ class EcommerceAdapter(BusinessAdapter):
                 if filters:
                     params.update(filters)
                 
-                response = await self.call_business_api(
+                response = self.call_business_api(
                     "/api/products/search",
                     method="GET",
                     params=params
@@ -127,9 +127,9 @@ class EcommerceAdapter(BusinessAdapter):
         from database.connection import get_db_context
         from services.product_service import ProductService
         
-        async with get_db_context() as db:
+        with get_db_context() as db:
             product_service = ProductService(db)
-            result = await product_service.search_products(
+            result = product_service.search_products(
                 keyword=keyword,
                 status="published",
                 page=1,
@@ -140,11 +140,11 @@ class EcommerceAdapter(BusinessAdapter):
             products = result.get("products", [])
             return [self._normalize_product(product) for product in products]
 
-    async def get_personalized_recommendations(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
+    def get_personalized_recommendations(self, user_id: str, limit: int = 5) -> List[Dict[str, Any]]:
         """Get personalized recommendations for the current user."""
         if self.api_base_url:
             try:
-                response = await self.call_business_api(
+                response = self.call_business_api(
                     "/api/recommendations/personalized",
                     method="GET",
                     params={"user_id": user_id, "limit": limit}
@@ -156,14 +156,14 @@ class EcommerceAdapter(BusinessAdapter):
         from database.connection import get_db_context
         from services.recommendation_service import RecommendationService
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             recommendation_service = RecommendationService(db)
-            return await recommendation_service.get_personalized_recommendations(
+            return recommendation_service.get_personalized_recommendations(
                 user_id=user_id,
                 limit=limit
             )
     
-    async def create_ticket(self, user_id: str, ticket_data: Dict) -> Dict:
+    def create_ticket(self, user_id: str, ticket_data: Dict) -> Dict:
         """创建工单"""
         if self.api_base_url:
             try:
@@ -171,7 +171,7 @@ class EcommerceAdapter(BusinessAdapter):
                     "user_id": user_id,
                     **ticket_data
                 }
-                response = await self.call_business_api(
+                response = self.call_business_api(
                     "/api/tickets",
                     method="POST",
                     data=data
@@ -185,13 +185,13 @@ class EcommerceAdapter(BusinessAdapter):
         from services.ticket_service import TicketService
         from schemas import TicketCreate
         
-        async with get_db_context() as db:
+        with get_db_context() as db:
             ticket_service = TicketService(db)
             ticket_create = TicketCreate(
                 user_id=user_id,
                 **ticket_data
             )
-            ticket = await ticket_service.create_ticket(ticket_create)
+            ticket = ticket_service.create_ticket(ticket_create)
             
             return self._normalize_ticket(ticket)
     

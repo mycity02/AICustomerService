@@ -189,7 +189,7 @@ class AIRuntime:
         execution_context: Optional[dict] = None,
     ) -> List[Any]:
         # 通过工具分组，让同一业务包在不同节点暴露不同能力集合，
-        # 例如默认路由使用一组工具，选题顾问使用另一组工具。
+        # 例如默认路由使用一组工具，AI 选茶顾问使用另一组工具。
         names = self.business_pack.get_enabled_plugin_names(group=group)
         plugins = self.plugin_manager.get_plugins(names=names, group=group)
         return [
@@ -241,7 +241,7 @@ class AIRuntimeFactory:
         businesses = config_loader.list_businesses()
         if businesses:
             return businesses[0]
-        return "graduation-marketplace"
+        return "tea-retail"
 
     def _create_adapter(self, business_id: str, config: Dict[str, Any]):
         adapter_class_name = config.get("adapter", {}).get("class", "adapters.EcommerceAdapter")

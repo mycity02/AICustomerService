@@ -1,8 +1,8 @@
 <template>
   <div v-if="loading && !currentProduct" class="detail-loading section-card">
     <div class="loader"></div>
-    <strong>正在载入项目详情</strong>
-    <p>图片、描述和交付信息会一起呈现。</p>
+    <strong>正在载入茶品详情</strong>
+    <p>正在同步茶品介绍、产地风味、价格与库存信息。</p>
   </div>
 
   <div v-else-if="currentProduct" class="detail-page page-shell">
@@ -31,13 +31,13 @@
       </div>
 
       <div class="summary-column">
-        <span class="eyebrow">{{ currentProduct.category?.name || 'Curated Project' }}</span>
+        <span class="eyebrow">{{ currentProduct.category?.name || '当季精选茶品' }}</span>
         <h1>{{ currentProduct.title }}</h1>
         <p>{{ currentProduct.description }}</p>
 
         <div class="summary-badges">
           <span class="summary-badge">{{ difficultyText }}</span>
-          <span class="summary-badge">{{ currentProduct.tech_stack?.slice(0, 2).join(' · ') || '多技术栈整合' }}</span>
+          <span class="summary-badge">{{ currentProduct.tech_stack?.slice(0, 2).join(' · ') || '产地与风味标签' }}</span>
           <span class="summary-badge">已售 {{ currentProduct.sales_count }}</span>
         </div>
 
@@ -52,24 +52,24 @@
         <div class="action-row">
           <button class="accent-button" type="button" @click="handleBuyNow">立即购买</button>
           <button class="ghost-button" type="button" @click="handleAddToCart">加入购物车</button>
-          <button class="glass-button" type="button" @click="router.push('/chat')">先问 AI 助手</button>
+          <button class="glass-button" type="button" @click="router.push('/chat')">咨询 AI 选茶顾问</button>
         </div>
 
         <div class="meta-grid">
           <article class="meta-card">
-            <span>技术栈</span>
+            <span>风味标签</span>
             <strong>{{ currentProduct.tech_stack?.length || 0 }} 项</strong>
             <p>{{ currentProduct.tech_stack?.join(' · ') || '等待补充' }}</p>
           </article>
           <article class="meta-card">
             <span>发布时间</span>
             <strong>{{ formatDate(currentProduct.created_at) }}</strong>
-            <p>支持先咨询后下单，减少沟通成本。</p>
+            <p>支持先咨询口感与冲泡方式，再安心下单。</p>
           </article>
           <article class="meta-card">
-            <span>卖家信息</span>
+            <span>茶商信息</span>
             <strong>{{ currentProduct.seller?.username || '平台精选' }}</strong>
-            <p>适合展示、答辩、交付与知识问答场景。</p>
+            <p>茶品信息、包装说明与售后保障清晰可查。</p>
           </article>
         </div>
       </div>
@@ -77,28 +77,28 @@
 
     <section class="detail-grid">
       <article class="story-card section-card">
-        <span class="eyebrow">Project Story</span>
-        <h2>项目亮点</h2>
+        <span class="eyebrow">茶品介绍</span>
+        <h2>茶品特点</h2>
         <p>{{ currentProduct.description }}</p>
       </article>
 
       <article class="story-card section-card">
-        <span class="eyebrow">Tech Stack</span>
-        <h2>技术组合</h2>
+        <span class="eyebrow">风味标签</span>
+        <h2>产地、香型与工艺</h2>
         <div class="stack-list">
           <span v-for="tech in currentProduct.tech_stack" :key="tech">{{ tech }}</span>
-          <span v-if="!currentProduct.tech_stack?.length">暂无技术栈说明</span>
+          <span v-if="!currentProduct.tech_stack?.length">暂无风味标签</span>
         </div>
       </article>
 
       <article class="story-card section-card">
-        <span class="eyebrow">Delivery</span>
-        <h2>交付与素材</h2>
+        <span class="eyebrow">品质保障</span>
+        <h2>包装与配送服务</h2>
         <ul class="delivery-list">
-          <li>文件数量：{{ currentProduct.files?.length || 0 }}</li>
-          <li>额外图片：{{ currentProduct.images?.length || 0 }}</li>
-          <li>浏览量：{{ currentProduct.view_count }}</li>
-          <li>状态：{{ currentProduct.status }}</li>
+          <li>独立密封包装，减少受潮与串味</li>
+          <li>支持订单物流查询与签收提醒</li>
+          <li>已售：{{ currentProduct.sales_count }} 件</li>
+          <li>状态：{{ getProductStatusText(currentProduct.status) }}</li>
         </ul>
       </article>
     </section>
@@ -106,10 +106,10 @@
     <section class="detail-tabs section-card">
       <div class="tab-switcher">
         <button class="tab-button" :class="{ active: activeTab === 'description' }" type="button" @click="activeTab = 'description'">
-          项目说明
+          茶品介绍
         </button>
         <button class="tab-button" :class="{ active: activeTab === 'files' }" type="button" @click="activeTab = 'files'">
-          交付内容
+          包装配送
         </button>
         <button class="tab-button" :class="{ active: activeTab === 'reviews' }" type="button" @click="activeTab = 'reviews'">
           评价预览
@@ -117,29 +117,38 @@
       </div>
 
       <div v-if="activeTab === 'description'" class="tab-panel">
-        <h3>完整说明</h3>
+        <h3>茶品详情</h3>
         <p>{{ currentProduct.description }}</p>
       </div>
 
       <div v-else-if="activeTab === 'files'" class="tab-panel">
-        <h3>交付清单</h3>
-        <div v-if="currentProduct.files?.length" class="file-grid">
-          <article v-for="file in currentProduct.files" :key="file.id" class="file-card">
-            <strong>{{ file.name }}</strong>
-            <span>{{ file.type }}</span>
-            <small>{{ formatBytes(file.size) }}</small>
+        <h3>包装与配送说明</h3>
+        <div class="file-grid">
+          <article class="file-card">
+            <strong>密封防潮</strong>
+            <span>食品级内袋与外盒包装</span>
+            <small>开封后请避光、密封保存</small>
+          </article>
+          <article class="file-card">
+            <strong>订单配送</strong>
+            <span>付款后按订单顺序安排发货</span>
+            <small>可在订单中心查询物流</small>
+          </article>
+          <article class="file-card">
+            <strong>售后保障</strong>
+            <span>支持破损、错发和质量问题反馈</span>
+            <small>请保留商品与包装凭证</small>
           </article>
         </div>
-        <p v-else>当前项目没有提供单独的文件说明，建议先通过 AI 助手咨询交付细节。</p>
       </div>
 
       <div v-else class="tab-panel">
-        <h3>评价概览</h3>
+        <h3>茶友评价概览</h3>
         <div class="review-overview">
           <strong>{{ currentProduct.rating.toFixed(1) }}</strong>
           <span>综合评分</span>
         </div>
-        <p>当前共 {{ currentProduct.review_count }} 条评价。后续可以继续补全单条评论内容模块。</p>
+        <p>当前共 {{ currentProduct.review_count }} 条评价。可结合茶友反馈了解香型、滋味与耐泡度。</p>
       </div>
     </section>
   </div>
@@ -167,12 +176,12 @@ const enterTime = ref(0)
 
 const difficultyText = computed(() => {
   const map: Record<string, string> = {
-    easy: '轻量入门',
-    medium: '标准进阶',
-    hard: '高阶项目'
+    easy: '清新鲜爽',
+    medium: '醇香回甘',
+    hard: '浓醇耐泡'
   }
 
-  return map[currentProduct.value?.difficulty || ''] || currentProduct.value?.difficulty || '项目方案'
+  return map[currentProduct.value?.difficulty || ''] || currentProduct.value?.difficulty || '经典茶品'
 })
 
 const galleryImages = computed(() => {
@@ -236,6 +245,17 @@ function formatPrice(value?: number) {
     currency: 'CNY',
     minimumFractionDigits: 2
   }).format(value ?? 0)
+}
+
+function getProductStatusText(status?: string) {
+  const map: Record<string, string> = {
+    draft: '待发布',
+    published: '可购买',
+    offline: '已下架',
+    sold_out: '已售罄'
+  }
+
+  return map[status || ''] || '状态待确认'
 }
 
 function formatDate(value?: string) {

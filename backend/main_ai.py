@@ -1,15 +1,10 @@
-"""Standalone AI module startup entrypoint."""
+"""Standalone AI module Flask startup entrypoint."""
+from __future__ import annotations
 
-import uvicorn
+from waitress import serve
 
-from config import settings
+from ai_module.app import app
 
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "ai_module.app:app",
-        host=settings.HOST,
-        port=8090,
-        reload=settings.DEBUG,
-    )
-
+    serve(app, host="0.0.0.0", port=8090, threads=8)

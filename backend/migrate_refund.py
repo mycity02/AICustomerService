@@ -4,21 +4,19 @@
 - 为 orders.status 枚举添加 'refunded' 值
 - 为 transactions.status 枚举添加 'refunded' 值
 """
-import asyncio
 from sqlalchemy import text
 from database.connection import engine, Base
 
 
-async def migrate():
+def migrate():
     # 1. 创建缺失的表（refund_requests）
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    Base.metadata.create_all(bind=engine)
     print("[OK] refund_requests table created")
 
     # 2. 为 orders.status 枚举添加 'refunded'
-    async with engine.begin() as conn:
+    with engine.begin() as conn:
         try:
-            await conn.execute(text(
+            conn.execute(text(
                 "ALTER TABLE orders MODIFY COLUMN status "
                 "ENUM('PENDING','PAID','DELIVERED','COMPLETED','CANCELLED','REFUNDED') "
                 "DEFAULT 'PENDING'"
@@ -28,9 +26,9 @@ async def migrate():
             print(f"[SKIP] orders.status: {e}")
 
     # 3. 为 transactions.status 枚举添加 'refunded'
-    async with engine.begin() as conn:
+    with engine.begin() as conn:
         try:
-            await conn.execute(text(
+            conn.execute(text(
                 "ALTER TABLE transactions MODIFY COLUMN status "
                 "ENUM('PENDING','SUCCESS','FAILED','REFUNDED') "
                 "DEFAULT 'PENDING'"
@@ -43,4 +41,4 @@ async def migrate():
 
 
 if __name__ == "__main__":
-    asyncio.run(migrate())
+    migrate()

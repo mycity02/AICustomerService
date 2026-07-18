@@ -1,10 +1,13 @@
 <template>
-  <AppLayout>
     <div class="product-list-page page-shell container">
-    <div class="page-header">
-      <h1 class="page-title">全部商品</h1>
-      <span class="result-count">共找到 {{ total }} 个商品</span>
-    </div>
+    <section class="system-page-intro">
+      <div class="system-page-intro-copy">
+        <span class="system-page-kicker">当季茶品</span>
+        <h1>茶品商城</h1>
+        <p>按茶类、产地、香型、评分和价格筛选茶品，找到适合自饮、待客或礼赠的好茶。</p>
+      </div>
+      <span class="system-page-metric">共上架 {{ total }} 款茶品</span>
+    </section>
 
     <!-- 筛选工具栏 -->
     <div class="filter-bar">
@@ -57,8 +60,8 @@
       <div class="empty-illustration">
         <el-icon><ShoppingBag /></el-icon>
       </div>
-      <strong>暂无商品</strong>
-      <p>该分类下暂时没有商品，去看看其他分类吧</p>
+      <strong>暂无匹配的茶品</strong>
+      <p>当前分类或搜索条件下没有茶品，请调整筛选条件后重试。</p>
       <button class="accent-button" @click="selectCategory(null)">查看全部</button>
     </div>
 
@@ -119,7 +122,6 @@
       </button>
     </div>
     </div>
-  </AppLayout>
 </template>
 
 <script setup lang="ts">
@@ -127,7 +129,6 @@ import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ShoppingBag, StarFilled, Plus, ArrowDown, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
-import AppLayout from '@/components/AppLayout.vue'
 import { useProductStore } from '@/stores/product'
 import { useCartStore } from '@/stores/cart'
 import { handleImageFallback, resolveProductImage } from '@/utils/image'
@@ -176,7 +177,7 @@ async function loadProducts() {
     totalPages.value = response.total_pages
   } catch (error) {
     console.error('加载商品失败:', error)
-    ElMessage.error('加载商品失败')
+    ElMessage.error('茶品列表加载失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -195,9 +196,9 @@ function goToDetail(productId: string) {
 async function addToCart(product: any) {
   try {
     await cartStore.addToCart(product.id, 1)
-    ElMessage.success('已添加到购物车')
+    ElMessage.success('茶品已加入购物车')
   } catch (error) {
-    ElMessage.error('添加失败')
+    ElMessage.error('加入购物车失败，请稍后重试')
   }
 }
 

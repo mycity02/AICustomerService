@@ -1,85 +1,17 @@
-"""
-FastAPI应用主入口
-"""
-import logging
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-from contextlib import asynccontextmanager
+"""Flask application entrypoint."""
+from __future__ import annotations
+
 from config import settings
-from api import api_router
-from services.redis_cache import redis_cache
+from web.app_factory import create_app
 
 
-logger = logging.getLogger(__name__)
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
-    # 启动时
-    settings.validate_runtime_configuration()
-    try:
-        await redis_cache.connect()
-        logger.info("Redis连接成功")
-    except Exception as e:
-        if settings.REDIS_REQUIRED:
-            raise
-        logger.warning("Redis连接失败，将使用内存缓存: %s", e)
-    
-    yield
-    
-    # 关闭时
-    try:
-        await redis_cache.disconnect()
-        logger.info("Redis连接已关闭")
-    except Exception as e:
-        logger.warning("Redis断开连接失败: %s", e)
-
-
-# 创建FastAPI应用
-app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    description="AI客服系统API",
-    docs_url="/api/docs",
-    redoc_url="/api/redoc",
-    lifespan=lifespan
-)
-
-# 配置CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# 注册API路由
-app.include_router(api_router)
-
-
-@app.get("/")
-async def root():
-    """根路径"""
-    return {
-        "name": settings.APP_NAME,
-        "version": settings.APP_VERSION,
-        "status": "running"
-    }
-
-
-@app.get("/health")
-async def health_check():
-    """健康检查"""
-    return {"status": "healthy"}
+app = create_app()
 
 
 if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run(
-        "main:app",
-        host=settings.HOST,
-        port=settings.PORT,
-        reload=settings.DEBUG
-    )
+    if settings.DEBUG:
+        app.run(host=settings.HOST, port=settings.PORT, debug=True, threaded=True)
+    else:
+        from waitress import serve
+
+        serve(app, host=settings.HOST, port=settings.PORT, threads=16)

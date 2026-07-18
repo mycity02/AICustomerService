@@ -32,7 +32,7 @@
           <div class="product-info">
             <span class="product-name">{{ getProductName(order) }}</span>
             <span v-if="order.items && order.items.length > 1" class="item-count">
-              等{{ order.items.length }}件商品
+              等 {{ order.items.length }} 件茶品
             </span>
           </div>
           <div class="order-meta">
@@ -154,17 +154,17 @@ const getProductName = (order: Order) => {
   
   if (!order.items) {
     console.warn('order.items 不存在')
-    return '商品'
+    return '茶品'
   }
   
   if (!Array.isArray(order.items)) {
     console.warn('order.items 不是数组:', typeof order.items)
-    return '商品'
+    return '茶品'
   }
   
   if (order.items.length === 0) {
     console.warn('order.items 是空数组')
-    return '商品'
+    return '茶品'
   }
   
   const firstItem = order.items[0]
@@ -172,10 +172,10 @@ const getProductName = (order: Order) => {
   
   if (!firstItem) {
     console.warn('第一个商品不存在')
-    return '商品'
+    return '茶品'
   }
   
-  return firstItem.product_title || '商品'
+  return firstItem.product_title || '茶品'
 }
 
 const formatTime = (time: string) => {

@@ -9,7 +9,7 @@ from ai_module.core.nodes.aftersales.constants import REASON_LABELS
 class AftersalesInputDescriptionNode(BaseNode):
     """Step 4: input optional description."""
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         flow_data = state.get("aftersales_flow") or {}
         reason = flow_data.get("reason", "other")
         reason_label = REASON_LABELS.get(reason, "其他")

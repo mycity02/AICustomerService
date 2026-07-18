@@ -1,15 +1,13 @@
 """File storage and secure lookup helpers."""
 from __future__ import annotations
 
-import asyncio
 import json
 import os
 import uuid
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
-import aiofiles
-from fastapi import UploadFile
+from concurrent.futures import ThreadPoolExecutor
 from PIL import Image
 from docx import Document as DocxDocument
 from pypdf import PdfReader
@@ -26,7 +24,8 @@ class FileService:
     def __init__(self):
         self.upload_dir = Path(settings.UPLOAD_DIR).resolve()
         self.upload_dir.mkdir(parents=True, exist_ok=True)
-        self._pending_analysis: dict[str, asyncio.Task] = {}
+        self._pending_analysis: dict[str, Any] = {}
+        self._analysis_executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="image-analysis")
 
     def _get_file_extension(self, filename: str) -> str:
         return filename.rsplit(".", 1)[1].lower() if "." in filename else ""
@@ -46,20 +45,20 @@ class FileService:
     def _analysis_path(self, file_id: str) -> Path:
         return self.upload_dir / f"{file_id}.analysis.json"
 
-    async def _write_json(self, path: Path, payload: dict) -> None:
-        async with aiofiles.open(path, "w", encoding="utf-8") as handle:
-            await handle.write(json.dumps(payload, ensure_ascii=False))
+    def _write_json(self, path: Path, payload: dict) -> None:
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps(payload, ensure_ascii=False))
 
-    async def _read_json(self, path: Path) -> Optional[dict]:
+    def _read_json(self, path: Path) -> Optional[dict]:
         if not path.exists():
             return None
         try:
-            async with aiofiles.open(path, "r", encoding="utf-8") as handle:
-                return json.loads(await handle.read())
+            with open(path, "r", encoding="utf-8") as handle:
+                return json.loads(handle.read())
         except Exception:
             return None
 
-    async def upload_file(self, file: UploadFile, user_id: str, session_id: str) -> dict:
+    def upload_file(self, file: Any, user_id: str, session_id: str) -> dict:
         if not self._is_allowed_file(file.filename):
             raise ValueError(f"Unsupported file type. Allowed: {', '.join(settings.allowed_extensions_list)}")
 
@@ -74,8 +73,8 @@ class FileService:
         ext = self._get_file_extension(file.filename)
         storage_path = self._build_storage_path(file_id, ext)
 
-        async with aiofiles.open(storage_path, "wb") as handle:
-            await handle.write(await file.read())
+        with open(storage_path, "wb") as handle:
+            handle.write(file.read())
 
         metadata = {
             "file_id": file_id,
@@ -87,7 +86,7 @@ class FileService:
             "mime_type": file.content_type,
             "storage_path": str(storage_path),
         }
-        await self._write_json(self._metadata_path(file_id), metadata)
+        self._write_json(self._metadata_path(file_id), metadata)
 
         result = {
             "file_id": file_id,
@@ -102,21 +101,23 @@ class FileService:
 
         if self._is_image_file(file.filename) and vision_llm_service.is_available():
             result["analysis_pending"] = True
-            self._pending_analysis[file_id] = asyncio.create_task(self._analyze_image_async(file_id))
+            self._pending_analysis[file_id] = self._analysis_executor.submit(
+                self._analyze_image, file_id
+            )
 
         return result
 
-    async def _analyze_image_async(self, file_id: str) -> None:
+    def _analyze_image(self, file_id: str) -> None:
         try:
-            metadata = await self.get_file_metadata(file_id)
+            metadata = self.get_file_metadata(file_id)
             if not metadata:
                 return
 
             file_path = Path(metadata["storage_path"])
-            async with aiofiles.open(file_path, "rb") as handle:
-                image_data = await handle.read()
+            with open(file_path, "rb") as handle:
+                image_data = handle.read()
 
-            analysis = await vision_llm_service.analyze_image_intent(image_data)
+            analysis = vision_llm_service.analyze_image_intent(image_data)
             payload = {
                 "file_id": file_id,
                 "extracted_text": analysis.get("extracted_text", ""),
@@ -126,14 +127,14 @@ class FileService:
                 "image_reasoning": analysis.get("reasoning", ""),
                 "confidence": analysis.get("confidence", 0),
             }
-            await self._write_json(self._analysis_path(file_id), payload)
+            self._write_json(self._analysis_path(file_id), payload)
         except Exception as exc:
             print(f"Image analysis failed for {file_id}: {exc}")
         finally:
             self._pending_analysis.pop(file_id, None)
 
-    async def get_file_metadata(self, file_id: str) -> Optional[dict]:
-        metadata = await self._read_json(self._metadata_path(file_id))
+    def get_file_metadata(self, file_id: str) -> Optional[dict]:
+        metadata = self._read_json(self._metadata_path(file_id))
         if metadata:
             return metadata
 
@@ -152,13 +153,13 @@ class FileService:
                 }
         return None
 
-    async def get_owned_file_metadata(
+    def get_owned_file_metadata(
         self,
         file_id: str,
         user_id: str,
         session_id: Optional[str] = None,
     ) -> Optional[dict]:
-        metadata = await self.get_file_metadata(file_id)
+        metadata = self.get_file_metadata(file_id)
         if not metadata:
             return None
         if metadata.get("user_id") and metadata["user_id"] != user_id:
@@ -168,13 +169,13 @@ class FileService:
             return None
         return metadata
 
-    async def resolve_attachment_reference(
+    def resolve_attachment_reference(
         self,
         file_id: str,
         user_id: str,
         session_id: Optional[str] = None,
     ) -> dict:
-        metadata = await self.get_owned_file_metadata(file_id, user_id, session_id=session_id)
+        metadata = self.get_owned_file_metadata(file_id, user_id, session_id=session_id)
         if not metadata:
             raise ValueError(f"Attachment {file_id} was not found for the current user/session")
 
@@ -187,33 +188,33 @@ class FileService:
             "file_path": metadata["storage_path"],
         }
 
-    async def get_image_analysis(
+    def get_image_analysis(
         self,
         file_id: str,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
     ) -> Optional[dict]:
         if user_id:
-            metadata = await self.get_owned_file_metadata(file_id, user_id, session_id=session_id)
+            metadata = self.get_owned_file_metadata(file_id, user_id, session_id=session_id)
             if not metadata:
                 return None
-        return await self._read_json(self._analysis_path(file_id))
+        return self._read_json(self._analysis_path(file_id))
 
-    async def get_file(
+    def get_file(
         self,
         file_id: str,
         user_id: Optional[str] = None,
         session_id: Optional[str] = None,
     ) -> Optional[bytes]:
-        metadata = await (
+        metadata = (
             self.get_owned_file_metadata(file_id, user_id, session_id=session_id)
             if user_id
             else self.get_file_metadata(file_id)
         )
         if not metadata:
             return None
-        async with aiofiles.open(metadata["storage_path"], "rb") as handle:
-            return await handle.read()
+        with open(metadata["storage_path"], "rb") as handle:
+            return handle.read()
 
     def extract_text(self, file_path: str) -> str:
         ext = self._get_file_extension(file_path)

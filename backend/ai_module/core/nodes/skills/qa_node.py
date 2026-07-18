@@ -62,21 +62,21 @@ class QANode(BaseNode):
     def __getattr__(self, item: str):
         return getattr(self.service, item)
 
-    async def _prepare_messages(self, state: ConversationState):
-        return await self.service.prepare_messages(state)
+    def _prepare_messages(self, state: ConversationState):
+        return self.service.prepare_messages(state)
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         if self.workflow is not None:
-            return await self.workflow.execute(state)
+            return self.workflow.execute(state)
 
         self.service.apply_quick_reply(state)
-        return await self.service.generate_response(state)
+        return self.service.generate_response(state)
 
-    async def execute_stream(self, state: ConversationState):
+    def execute_stream(self, state: ConversationState):
         if self.workflow is not None:
-            async for token in self.workflow.execute_stream(state):
+            for token in self.workflow.execute_stream(state):
                 yield token
             return
 
-        async for token in self.service.generate_response_stream(state):
+        for token in self.service.generate_response_stream(state):
             yield token

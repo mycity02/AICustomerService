@@ -27,5 +27,5 @@ class OrderQueryNode(BaseNode):
     def __getattr__(self, item: str):
         return getattr(self.service, item)
 
-    async def execute(self, state: ConversationState) -> ConversationState:
-        return await self.workflow.execute(state)
+    def execute(self, state: ConversationState) -> ConversationState:
+        return self.workflow.execute(state)

@@ -1,17 +1,22 @@
 <template>
   <div id="app">
-    <router-view />
+    <router-view v-slot="{ Component, route }">
+      <component :is="Component" v-if="route.meta.standalone" />
+      <AppLayout v-else>
+        <component :is="Component" />
+      </AppLayout>
+    </router-view>
   </div>
 </template>
 
 <script setup lang="ts">
-// AI电商客服系统 - 根应用
+import AppLayout from '@/components/AppLayout.vue'
 </script>
 
 <style>
 /* ========================================
-   AI电商客服系统 - 全局设计系统
-   风格: 现代电商 + AI智能助手
+   云岫茶坊 AI 茶叶销售系统 - 全局设计系统
+   风格: 东方茶文化 + AI 智能导购
    ======================================== */
 
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700;800&display=swap');
@@ -20,22 +25,22 @@
   color-scheme: light;
   
   /* 主色调 - 科技蓝 */
-  --primary: #2563EB;
-  --primary-light: #3B82F6;
-  --primary-lighter: rgba(37, 99, 235, 0.1);
-  --primary-dark: #1D4ED8;
-  --primary-gradient: linear-gradient(135deg, #2563EB 0%, #3B82F6 100%);
-  --hero-gradient: linear-gradient(135deg, #1D4ED8 0%, #2563EB 45%, #7C3AED 100%);
+  --primary: #2F6B4F;
+  --primary-light: #4A8B68;
+  --primary-lighter: rgba(47, 107, 79, 0.1);
+  --primary-dark: #24523D;
+  --primary-gradient: linear-gradient(135deg, #2F6B4F 0%, #5B8F69 100%);
+  --hero-gradient: linear-gradient(135deg, #183C2B 0%, #2F6B4F 48%, #A7753A 100%);
   
   /* 辅助色 */
-  --secondary: #7C3AED;
-  --secondary-light: #A78BFA;
-  --secondary-gradient: linear-gradient(135deg, #7C3AED 0%, #A78BFA 100%);
+  --secondary: #8B633E;
+  --secondary-light: #B88A5B;
+  --secondary-gradient: linear-gradient(135deg, #8B633E 0%, #B88A5B 100%);
   
   /* 强调色 - 活力橙 */
-  --accent: #F59E0B;
-  --accent-light: #FBBF24;
-  --accent-gradient: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
+  --accent: #C98B2E;
+  --accent-light: #E1AE57;
+  --accent-gradient: linear-gradient(135deg, #C98B2E 0%, #E1AE57 100%);
   
   /* 功能色 */
   --success: #10B981;
@@ -83,7 +88,7 @@
   --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
   --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
   --shadow-xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  --shadow-primary: 0 4px 14px rgba(37, 99, 235, 0.25);
+  --shadow-primary: 0 4px 14px rgba(47, 107, 79, 0.25);
   
   /* 圆角 */
   --radius-xs: 4px;
@@ -137,6 +142,64 @@ body {
   min-height: 100vh;
 }
 
+/* 统一业务页面标题 */
+.system-page-intro {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 28px 0 6px;
+}
+
+.system-page-intro-copy {
+  min-width: 0;
+}
+
+.system-page-kicker {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.system-page-intro h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(28px, 3vw, 38px);
+  line-height: 1.15;
+}
+
+.system-page-intro p {
+  max-width: 680px;
+  margin: 10px 0 0;
+  color: var(--text-muted);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.system-page-metric {
+  flex-shrink: 0;
+  padding: 9px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: var(--shadow-xs);
+}
+
+@media (max-width: 640px) {
+  .system-page-intro {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 14px;
+    padding-top: 22px;
+  }
+}
+
 /* 通用工具类 */
 .container {
   width: 100%;
@@ -183,7 +246,7 @@ body {
 .btn-primary:hover:not(:disabled) {
   background: var(--primary-dark);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.3);
+  box-shadow: 0 6px 20px rgba(47, 107, 79, 0.3);
 }
 
 .btn-secondary {

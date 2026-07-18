@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import AsyncIterator
+from typing import Iterator
 
 from ..state import ConversationState
 
@@ -14,11 +14,11 @@ class BaseWorkflow(ABC):
     stream_enabled: bool = False
 
     @abstractmethod
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         """Execute a full workflow turn and return updated conversation state."""
 
-    async def execute_stream(self, state: ConversationState) -> AsyncIterator[str]:
+    def execute_stream(self, state: ConversationState) -> Iterator[str]:
         """Stream workflow output token-by-token when supported."""
-        result = await self.execute(state)
+        result = self.execute(state)
         for char in result.get("response", ""):
             yield char

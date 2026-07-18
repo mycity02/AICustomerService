@@ -11,13 +11,13 @@ logger = logging.getLogger(__name__)
 class PurchaseFlowService:
     """Encapsulates business logic for each purchase flow step."""
 
-    async def _load_product_summary(self, product_id):
+    def _load_product_summary(self, product_id):
         from database.connection import get_db_context
         from services.product_service import ProductService
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             product_service = ProductService(db)
-            product = await product_service.get_product(product_id)
+            product = product_service.get_product(product_id)
 
         if not product:
             return None
@@ -29,13 +29,13 @@ class PurchaseFlowService:
             "tech_stack": product.get("tech_stack", []),
         }
 
-    async def get_available_coupons(self, user_id: str, order_amount: float):
+    def get_available_coupons(self, user_id: str, order_amount: float):
         """获取用户可用优惠券。"""
         from database.connection import get_db_context
         from sqlalchemy import select
         from database.models import Coupon, UserCoupon
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             stmt = select(UserCoupon, Coupon).join(
                 Coupon, UserCoupon.coupon_id == Coupon.id
             ).where(
@@ -44,7 +44,7 @@ class PurchaseFlowService:
                 Coupon.min_amount <= order_amount,
                 Coupon.expire_date > datetime.now(),
             )
-            result = await db.execute(stmt)
+            result = db.execute(stmt)
             rows = result.all()
 
             coupons = []
@@ -61,17 +61,17 @@ class PurchaseFlowService:
 
             return coupons
 
-    async def get_user_addresses(self, user_id: str):
+    def get_user_addresses(self, user_id: str):
         """获取用户收货地址。"""
         from database.connection import get_db_context
         from sqlalchemy import select
         from database.models import Address
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             stmt = select(Address).where(
                 Address.user_id == user_id
             ).order_by(Address.is_default.desc())
-            result = await db.execute(stmt)
+            result = db.execute(stmt)
             addresses = result.scalars().all()
 
             return [
@@ -88,14 +88,14 @@ class PurchaseFlowService:
                 for address in addresses
             ]
 
-    async def _load_address_info(self, address_id):
+    def _load_address_info(self, address_id):
         from database.connection import get_db_context
         from sqlalchemy import select
         from database.models import Address
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             stmt = select(Address).where(Address.id == address_id)
-            result = await db.execute(stmt)
+            result = db.execute(stmt)
             address = result.scalar_one_or_none()
 
         if not address:
@@ -108,7 +108,7 @@ class PurchaseFlowService:
             "full_address": f"{address.province}{address.city}{address.district}{address.detail}",
         }
 
-    async def handle_confirm_product(self, state, flow_data: dict):
+    def handle_confirm_product(self, state, flow_data: dict):
         """步骤1: 确认商品。"""
         product_id = flow_data.get("product_id")
 
@@ -116,7 +116,7 @@ class PurchaseFlowService:
             state["response"] = "请先选择要购买的商品"
             return state
 
-        product = await self._load_product_summary(product_id)
+        product = self._load_product_summary(product_id)
         if not product:
             state["response"] = "商品不存在或已下架"
             return state
@@ -127,7 +127,7 @@ class PurchaseFlowService:
             "step": "select_coupon",
         }
 
-        coupons = await self.get_available_coupons(state.get("user_id"), product.get("price", 0))
+        coupons = self.get_available_coupons(state.get("user_id"), product.get("price", 0))
 
         if coupons:
             coupon_cards = []
@@ -183,11 +183,11 @@ class PurchaseFlowService:
 
         return state
 
-    async def handle_select_coupon(self, state, flow_data: dict):
+    def handle_select_coupon(self, state, flow_data: dict):
         """步骤2: 选择优惠券。"""
-        return await self.handle_confirm_product(state, {**flow_data, "step": "confirm_coupon"})
+        return self.handle_confirm_product(state, {**flow_data, "step": "confirm_coupon"})
 
-    async def handle_confirm_coupon(self, state, flow_data: dict):
+    def handle_confirm_coupon(self, state, flow_data: dict):
         """步骤2.1: 确认优惠券选择。"""
         product = flow_data.get("product", {})
         coupon_id = flow_data.get("coupon_id")
@@ -198,9 +198,9 @@ class PurchaseFlowService:
 
         coupon_info = None
         if coupon_id:
-            async with get_db_context() as db:
+            with get_db_context() as db:
                 stmt = select(Coupon).where(Coupon.id == coupon_id)
-                result = await db.execute(stmt)
+                result = db.execute(stmt)
                 coupon = result.scalar_one_or_none()
                 if coupon:
                     coupon_info = {
@@ -225,7 +225,7 @@ class PurchaseFlowService:
             response += f"✅ 优惠券：{coupon_info['name']}（-¥{discount}）\n"
         response += "\n请选择收货地址："
 
-        addresses = await self.get_user_addresses(state.get("user_id"))
+        addresses = self.get_user_addresses(state.get("user_id"))
 
         if addresses:
             address_cards = []
@@ -277,7 +277,7 @@ class PurchaseFlowService:
 
         return state
 
-    async def handle_select_address(self, state, flow_data: dict):
+    def handle_select_address(self, state, flow_data: dict):
         """步骤3: 选择地址。"""
         product = flow_data.get("product")
         product_id = flow_data.get("product_id")
@@ -286,7 +286,7 @@ class PurchaseFlowService:
         final_price = flow_data.get("final_price")
 
         if not product and product_id:
-            product = await self._load_product_summary(product_id)
+            product = self._load_product_summary(product_id)
 
         if final_price is None and product:
             final_price = product.get("price", 0)
@@ -297,7 +297,7 @@ class PurchaseFlowService:
             "step": "select_address",
         }
 
-        addresses = await self.get_user_addresses(state.get("user_id"))
+        addresses = self.get_user_addresses(state.get("user_id"))
         response = "请选择收货地址："
 
         if addresses:
@@ -350,7 +350,7 @@ class PurchaseFlowService:
 
         return state
 
-    async def handle_confirm_address(self, state, flow_data: dict):
+    def handle_confirm_address(self, state, flow_data: dict):
         """步骤3.1: 确认地址。"""
         product = flow_data.get("product", {})
         product_id = flow_data.get("product_id")
@@ -358,7 +358,7 @@ class PurchaseFlowService:
         address_id = flow_data.get("address_id")
 
         if (not product or not product.get("title")) and product_id:
-            product = await self._load_product_summary(product_id)
+            product = self._load_product_summary(product_id)
 
         final_price = flow_data.get("final_price", product.get("price", 0))
 
@@ -366,7 +366,7 @@ class PurchaseFlowService:
             state["response"] = "请选择收货地址"
             return state
 
-        address_info = await self._load_address_info(address_id)
+        address_info = self._load_address_info(address_id)
         if not address_info:
             state["response"] = "地址不存在"
             return state
@@ -422,11 +422,11 @@ class PurchaseFlowService:
 
         return state
 
-    async def handle_order_confirm(self, state, flow_data: dict):
+    def handle_order_confirm(self, state, flow_data: dict):
         """步骤4: 订单确认。"""
-        return await self.handle_confirm_address(state, {**flow_data, "step": "confirm_address"})
+        return self.handle_confirm_address(state, {**flow_data, "step": "confirm_address"})
 
-    async def handle_payment(self, state, flow_data: dict):
+    def handle_payment(self, state, flow_data: dict):
         """步骤5: 支付。"""
         product = flow_data.get("product", {})
         product_id = flow_data.get("product_id")
@@ -435,19 +435,19 @@ class PurchaseFlowService:
         final_price = flow_data.get("final_price", 0)
 
         if (not product or not product.get("id")) and product_id:
-            product = await self._load_product_summary(product_id)
+            product = self._load_product_summary(product_id)
             if product and not final_price:
                 final_price = product.get("price", 0)
 
         if (not address or not address.get("full_address")) and address_id:
-            address = await self._load_address_info(address_id)
+            address = self._load_address_info(address_id)
 
         from database.connection import get_db_context
         from services.order_service import OrderService
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             order_service = OrderService(db)
-            order_result = await order_service.create_order(
+            order_result = order_service.create_order(
                 buyer_id=state.get("user_id"),
                 product_ids=[product.get("id")],
             )
@@ -505,7 +505,7 @@ class PurchaseFlowService:
 
         return state
 
-    async def handle_payment_done(self, state, flow_data: dict):
+    def handle_payment_done(self, state, flow_data: dict):
         """步骤6: 支付方式确认后，展示支付密码输入。"""
         order_no = flow_data.get("order_no", "")
         order_id = flow_data.get("order_id", "")
@@ -542,7 +542,7 @@ class PurchaseFlowService:
 
         return state
 
-    async def handle_payment_success(self, state, flow_data: dict):
+    def handle_payment_success(self, state, flow_data: dict):
         """步骤7: 支付成功。"""
         order_no = flow_data.get("order_no", "")
         order_id = flow_data.get("order_id", "")
@@ -554,9 +554,9 @@ class PurchaseFlowService:
         from services.order_service import OrderService
 
         try:
-            async with get_db_context() as db:
+            with get_db_context() as db:
                 order_service = OrderService(db)
-                await order_service.update_order_status(
+                order_service.update_order_status(
                     order_id=order_id,
                     status="paid",
                 )

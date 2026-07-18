@@ -14,7 +14,7 @@ class AftersalesRouteNode(BaseNode):
         super().__init__()
         self.step_to_node_key = step_to_node_key
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         step = state.get("_aftersales_step", "select_order")
         state["_aftersales_node_key"] = self.step_to_node_key.get(step)
         return state

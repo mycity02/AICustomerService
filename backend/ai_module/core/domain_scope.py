@@ -34,9 +34,9 @@ def has_business_signal(message: str, *, runtime=None) -> bool:
     if not normalized:
         return False
 
-    if re.search(r"(毕设|毕业设计|课设|选题)", normalized, re.IGNORECASE):
+    if re.search(r"(茶叶|绿茶|红茶|乌龙茶|白茶|普洱茶|花茶|选茶)", normalized, re.IGNORECASE):
         return True
-    if re.search(r"(找|想要|需要).*(项目|源码)", normalized, re.IGNORECASE):
+    if re.search(r"(找|想要|需要|推荐).*(茶|茶叶|茶品)", normalized, re.IGNORECASE):
         return True
 
     for intent, keywords in get_intent_rules(runtime).items():

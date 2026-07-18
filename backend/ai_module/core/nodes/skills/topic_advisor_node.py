@@ -63,20 +63,20 @@ class TopicAdvisorNode(BaseNode):
         self.service = self.workflow.service if self.workflow is not None else service_cls(llm, runtime=runtime)
         self.mode_enum = mode_enum
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         if self.workflow is not None:
-            return await self.workflow.execute(state)
+            return self.workflow.execute(state)
 
         self.service.prepare_state(state)
         mode = self.service.resolve_mode(state)
         if mode == self.mode_enum.REFINE_PREFERENCES:
             self.service.prepare_refinement_response(state)
             return state
-        return await self.service.run_agent(state)
+        return self.service.run_agent(state)
 
-    async def execute_stream(self, state: ConversationState):
+    def execute_stream(self, state: ConversationState):
         if self.workflow is not None:
-            async for token in self.workflow.execute_stream(state):
+            for token in self.workflow.execute_stream(state):
                 yield token
             return
 
@@ -88,5 +88,5 @@ class TopicAdvisorNode(BaseNode):
                 yield state["response"]
             return
 
-        async for token in self.service.run_agent_stream(state):
+        for token in self.service.run_agent_stream(state):
             yield token

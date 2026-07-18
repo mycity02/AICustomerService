@@ -3,7 +3,7 @@
 """
 from typing import List, Dict, Any, Optional
 from sqlalchemy import select, and_, desc, func
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy.dialects.mysql import insert
 import uuid
 from datetime import datetime, timedelta
@@ -12,10 +12,10 @@ from database.models import UserBrowseHistory, Product
 
 
 class BrowseService:
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def record_browse(
+    def record_browse(
         self,
         user_id: str,
         product_id: str,
@@ -35,15 +35,15 @@ class BrowseService:
             created_at=datetime.now()
         )
         
-        await self.db.execute(stmt)
-        await self.db.commit()
+        self.db.execute(stmt)
+        self.db.commit()
         
         return {
             "success": True,
             "message": "浏览记录已保存"
         }
     
-    async def get_browse_history(
+    def get_browse_history(
         self,
         user_id: str,
         page: int = 1,
@@ -60,18 +60,18 @@ class BrowseService:
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         records = result.scalars().all()
         
         count_query = select(func.count()).select_from(UserBrowseHistory).where(
             UserBrowseHistory.user_id == user_id
         )
-        count_result = await self.db.execute(count_query)
+        count_result = self.db.execute(count_query)
         total = count_result.scalar()
         
         items = []
         for record in records:
-            product = await self.db.get(Product, record.product_id)
+            product = self.db.get(Product, record.product_id)
             items.append({
                 "id": record.id,
                 "product_id": record.product_id,
@@ -90,12 +90,12 @@ class BrowseService:
             "total_pages": (total + page_size - 1) // page_size if total else 0
         }
     
-    async def get_user_interests(
+    def get_user_interests(
         self,
         user_id: str,
         limit: int = 10
     ) -> Dict[str, Any]:
-        """获取用户兴趣标签（基于浏览历史的商品技术栈）"""
+        """获取用户兴趣标签（基于浏览历史中的茶品风味标签）"""
         query = select(UserBrowseHistory).options(
         ).where(
             UserBrowseHistory.user_id == user_id
@@ -103,14 +103,14 @@ class BrowseService:
             desc(UserBrowseHistory.created_at)
         ).limit(50)
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         records = result.scalars().all()
         
         tech_counter: Dict[str, int] = {}
         category_counter: Dict[str, int] = {}
         
         for record in records:
-            product = await self.db.get(Product, record.product_id)
+            product = self.db.get(Product, record.product_id)
             if product:
                 if product.tech_stack:
                     for tech in product.tech_stack:
@@ -126,7 +126,7 @@ class BrowseService:
             "categories": [{"category_id": c[0], "count": c[1]} for c in sorted_categories]
         }
     
-    async def delete_browse_record(
+    def delete_browse_record(
         self,
         user_id: str,
         product_id: str
@@ -138,25 +138,25 @@ class BrowseService:
                 UserBrowseHistory.product_id == product_id
             )
         )
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         record = result.scalar_one_or_none()
         
         if record:
-            await self.db.delete(record)
-            await self.db.commit()
+            self.db.delete(record)
+            self.db.commit()
             return True
         return False
     
-    async def clear_browse_history(self, user_id: str) -> bool:
+    def clear_browse_history(self, user_id: str) -> bool:
         """清空用户所有浏览记录"""
         query = select(UserBrowseHistory).where(
             UserBrowseHistory.user_id == user_id
         )
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         records = result.scalars().all()
         
         for record in records:
-            await self.db.delete(record)
+            self.db.delete(record)
         
-        await self.db.commit()
+        self.db.commit()
         return True

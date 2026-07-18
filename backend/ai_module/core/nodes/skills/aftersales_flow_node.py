@@ -23,5 +23,5 @@ class AftersalesFlowNode(BaseNode):
         super().__init__(llm=llm, runtime=runtime)
         self.workflow = AftersalesFlowWorkflow()
 
-    async def execute(self, state: ConversationState) -> ConversationState:
-        return await self.workflow.execute(state)
+    def execute(self, state: ConversationState) -> ConversationState:
+        return self.workflow.execute(state)

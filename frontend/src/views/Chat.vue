@@ -7,7 +7,7 @@
       <div class="sidebar" :class="{ open: sidebarVisible }">
         <div class="sidebar-header">
           <div class="sidebar-title">
-            <h3>AI 助手会话</h3>
+            <h3>云岫茶坊智能客服</h3>
           </div>
 
           <div class="sidebar-header-actions">
@@ -29,7 +29,7 @@
         <div class="session-list">
           <div v-if="sessionGroups.length === 0" class="session-list-empty">
             <strong>还没有历史会话</strong>
-            <p>从一个问题开始，系统会自动创建新的咨询记录。</p>
+            <p>发起选茶、冲泡、订单物流或售后咨询，系统会自动保存服务记录。</p>
           </div>
 
           <div
@@ -74,7 +74,7 @@
               </el-button>
 
               <div class="chat-header-copy">
-                <h3>{{ chatStore.currentSession?.title || '请选择或创建对话' }}</h3>
+                <h3>{{ chatStore.currentSession?.title || '云岫茶坊 AI 客服' }}</h3>
               </div>
             </div>
 
@@ -89,15 +89,17 @@
           <div ref="messageListRef" class="message-list">
             <div class="message-list-inner">
               <div v-if="messageList.length === 0" class="conversation-empty">
-                <h4>有什么可以帮你的吗？</h4>
+                <span class="system-page-kicker">云岫茶坊 AI 智能客服</span>
+                <h4>你好，我是你的 AI 选茶顾问</h4>
+                <p>可以根据饮用场景和口味推荐茶品，也能解答冲泡、订单物流与售后问题。</p>
                 <div class="empty-suggestions">
-                  <button class="suggestion-chip" type="button" @click="prefillMessage('帮我推荐一个适合 Java + Vue 的毕业设计项目')">
-                    推荐项目
+                  <button class="suggestion-chip" type="button" @click="prefillMessage('帮我推荐一款适合送长辈、预算 300 元左右的茶')">
+                    智能选茶
                   </button>
                   <button class="suggestion-chip" type="button" @click="prefillMessage('帮我查一下最近订单的物流状态')">
                     查询订单
                   </button>
-                  <button class="suggestion-chip" type="button" @click="prefillMessage('售后流程怎么走？')">
+                  <button class="suggestion-chip" type="button" @click="prefillMessage('收到的茶叶包装破损，售后流程怎么走？')">
                     售后咨询
                   </button>
                 </div>
@@ -224,7 +226,7 @@
                       <div class="order-card-body">
                         <div class="product-info">
                           <span class="product-name">{{ action.data.product_name }}</span>
-                          <span v-if="action.data.item_count > 1" class="item-count">等{{ action.data.item_count }}件商品</span>
+                          <span v-if="action.data.item_count > 1" class="item-count">等 {{ action.data.item_count }} 件茶品</span>
                         </div>
                         <div class="order-meta">
                           <span class="order-amount">¥{{ action.data.total_amount.toFixed(2) }}</span>
@@ -384,7 +386,7 @@
             type="textarea"
             :rows="1"
             :autosize="{ minRows: 1, maxRows: 4 }"
-            placeholder="输入消息... 或直接拖拽/粘贴文件到此处"
+            placeholder="请输入选茶、冲泡、订单物流或售后问题，也可拖拽文件到此处"
             @keydown.enter.exact.prevent="handleEnterKey"
             @paste="handlePaste"
           />
@@ -1223,9 +1225,9 @@ const getOrderStatusText = (status: string) => {
 
 const getOrderProductName = (order: any) => {
   if (!order.items || !Array.isArray(order.items) || order.items.length === 0) {
-    return '商品'
+    return '茶品'
   }
-  return order.items[0]?.product_title || '商品'
+  return order.items[0]?.product_title || '茶品'
 }
 
 // 处理快速操作按钮点击
@@ -1328,7 +1330,7 @@ const handleQuickAction = async (action: any) => {
     } else if (action.action === 'add_to_cart') {
       // 加入购物车
       const productId = action.data?.product_id
-      const productTitle = action.data?.product?.title || '商品'
+      const productTitle = action.data?.product?.title || '茶品'
       if (productId) {
         try {
           await cartStore.addToCart(productId, 1)
@@ -1429,13 +1431,13 @@ const handleQuickAction = async (action: any) => {
      ================================================== */
   
   /* Primary Colors - Tech Blue */
-  --primary: #2563EB;
-  --primary-light: #3B82F6;
-  --primary-dark: #1D4ED8;
+  --primary: #2F6B4F;
+  --primary-light: #4A8B68;
+  --primary-dark: #24523D;
   --primary-lighter: rgba(37, 99, 235, 0.08);
   
   /* Accent Colors - Violet */
-  --accent: #7C3AED;
+  --accent: #8B633E;
   --accent-light: #8B5CF6;
   
   /* Text Colors - Slate */

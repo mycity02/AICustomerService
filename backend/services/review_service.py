@@ -2,7 +2,7 @@
 评价服务模块
 """
 from typing import List, Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, and_, func
 from sqlalchemy.orm import joinedload
 from database.models import Review, OrderItem, Order, Product, OrderStatus
@@ -13,10 +13,10 @@ from datetime import datetime
 class ReviewService:
     """评价服务类"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def create_review(
+    def create_review(
         self,
         order_item_id: str,
         buyer_id: str,
@@ -30,7 +30,7 @@ class ReviewService:
             raise ValueError("评分必须在1-5之间")
         
         # 获取订单项
-        result = await self.db.execute(
+        result = self.db.execute(
             select(OrderItem)
             .options(joinedload(OrderItem.order))
             .where(OrderItem.id == order_item_id)
@@ -48,7 +48,7 @@ class ReviewService:
             raise ValueError("只能评价已完成的订单")
         
         # 检查是否已评价
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Review).where(Review.order_item_id == order_item_id)
         )
         existing = result.scalar_one_or_none()
@@ -71,14 +71,14 @@ class ReviewService:
         self.db.add(review)
         
         # 更新商品评分
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Product).where(Product.id == order_item.product_id)
         )
         product = result.scalar_one_or_none()
         
         if product:
             # 计算新的平均评分
-            result = await self.db.execute(
+            result = self.db.execute(
                 select(func.avg(Review.rating), func.count(Review.id))
                 .where(Review.product_id == product.id)
             )
@@ -91,12 +91,12 @@ class ReviewService:
             product.rating = int(new_avg * 100)  # 存储为整数
             product.review_count = new_count
         
-        await self.db.commit()
-        await self.db.refresh(review)
+        self.db.commit()
+        self.db.refresh(review)
         
         return self._review_to_dict(review)
     
-    async def get_reviews(
+    def get_reviews(
         self,
         product_id: Optional[str] = None,
         buyer_id: Optional[str] = None,
@@ -130,7 +130,7 @@ class ReviewService:
         offset = (page - 1) * page_size
         query = query.offset(offset).limit(page_size)
         
-        result = await self.db.execute(query)
+        result = self.db.execute(query)
         reviews = result.scalars().all()
         
         return {
@@ -139,14 +139,14 @@ class ReviewService:
             "page_size": page_size
         }
     
-    async def reply_review(
+    def reply_review(
         self,
         review_id: str,
         seller_id: str,
         reply: str
     ) -> Dict[str, Any]:
         """回复评价"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Review).where(Review.id == review_id)
         )
         review = result.scalar_one_or_none()
@@ -160,8 +160,8 @@ class ReviewService:
         review.reply = reply
         review.reply_time = datetime.now()
         
-        await self.db.commit()
-        await self.db.refresh(review)
+        self.db.commit()
+        self.db.refresh(review)
         
         return self._review_to_dict(review)
     

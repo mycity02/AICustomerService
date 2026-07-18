@@ -102,8 +102,8 @@ class ConversationControlNode(BaseNode):
         slots = active_task.get("slots") or {}
         language = slots.get("language")
         if language:
-            return f"说回刚才在看的 {language} 项目，您更在意技术栈、预算还是难度？"
-        return "说回刚才挑项目这件事，您更在意技术栈、预算还是难度？"
+            return f"说回刚才在看的 {language} 茶品，您更在意香型、预算还是口感浓淡？"
+        return "说回刚才选茶这件事，您更在意茶类、香型、预算还是口感浓淡？"
 
     def _build_generic_fallback_reply(self, state: ConversationState, flow_label: str) -> str:
         return f"顺着刚才的{flow_label}，您可以继续往下说，我接着帮您处理。"
@@ -126,8 +126,8 @@ class ConversationControlNode(BaseNode):
                 parts.append(f"上一轮助手说：{last_assistant[:80]}")
         return "；".join(parts) if parts else "用户刚进入业务流程"
 
-    async def _build_scope_redirect_reply(self, state: ConversationState, flow_label: str) -> str:
-        return await compose_out_of_scope_reply(
+    def _build_scope_redirect_reply(self, state: ConversationState, flow_label: str) -> str:
+        return compose_out_of_scope_reply(
             state.get("user_message", ""),
             self._build_scope_redirect_text(state, flow_label),
             llm=self.llm,
@@ -136,12 +136,12 @@ class ConversationControlNode(BaseNode):
             context_hint=self._build_context_hint(state),
         )
 
-    async def _generate_side_topic_reply(self, state: ConversationState, flow_label: str, step_hint: Optional[str]) -> str:
+    def _generate_side_topic_reply(self, state: ConversationState, flow_label: str, step_hint: Optional[str]) -> str:
         if self._looks_out_of_business_scope(state):
-            return await self._build_scope_redirect_reply(state, flow_label)
+            return self._build_scope_redirect_reply(state, flow_label)
 
         if self.llm is None:
-            return await self._build_scope_redirect_reply(state, flow_label)
+            return self._build_scope_redirect_reply(state, flow_label)
 
         short_term_memory = self.memory_builder.build_short_term_memory_text(state)
 
@@ -180,7 +180,7 @@ class ConversationControlNode(BaseNode):
             ]
         )
 
-        response = await self.llm.ainvoke(
+        response = self.llm.invoke(
             prompt.format_messages(
                 business_name=self._business_name(state),
                 flow_label=flow_label,
@@ -192,13 +192,13 @@ class ConversationControlNode(BaseNode):
         content = response.content if hasattr(response, "content") else str(response)
         return (content or "").strip()
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         response_mode = state.get("response_mode")
         flow_label = self._flow_label(state)
         step_hint = self._step_hint(state)
 
         if response_mode == RESPONSE_MODE_ANSWER_THEN_RESUME:
-            state["response"] = await self._generate_side_topic_reply(state, flow_label, step_hint)
+            state["response"] = self._generate_side_topic_reply(state, flow_label, step_hint)
             state["quick_actions"] = None
             return state
 

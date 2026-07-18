@@ -1,7 +1,7 @@
 {
   "name": "ai-customer-service-frontend",
   "version": "1.0.0",
-  "description": "AI客服系统前端",
+  "description": "云岫茶坊 AI 茶叶销售系统前端",
   "type": "module",
   "scripts": {
     "dev": "vite",

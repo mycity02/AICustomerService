@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 try:
-    import redis.asyncio as redis
+    import redis
 except ModuleNotFoundError:  # pragma: no cover - optional dependency in some test environments
     redis = None
 
@@ -23,19 +23,19 @@ class MemoryCache:
     def __init__(self):
         self._cache: Dict[str, Any] = {}
 
-    async def connect(self):
+    def connect(self):
         logger.info("Initialized in-memory cache fallback")
 
-    async def disconnect(self):
+    def disconnect(self):
         self._cache.clear()
 
-    async def get_context(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_context(self, session_id: str) -> Optional[Dict[str, Any]]:
         payload = self._cache.get(f"session:{session_id}:context")
         if not payload:
             return None
         return self._normalize_context(payload)
 
-    async def update_context(
+    def update_context(
         self,
         session_id: str,
         history: Optional[List[Dict]] = None,
@@ -74,10 +74,10 @@ class MemoryCache:
         existing["updated_at"] = datetime.now().isoformat()
         self._cache[key] = existing
 
-    async def clear_context(self, session_id: str):
+    def clear_context(self, session_id: str):
         self._cache.pop(f"session:{session_id}:context", None)
 
-    async def add_message_to_context(self, session_id: str, user_message: str, assistant_message: str):
+    def add_message_to_context(self, session_id: str, user_message: str, assistant_message: str):
         key = f"session:{session_id}:context"
         existing = self._cache.get(key, {})
         history = list(existing.get("history", []))
@@ -92,16 +92,16 @@ class MemoryCache:
         existing["updated_at"] = datetime.now().isoformat()
         self._cache[key] = existing
 
-    async def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> Optional[str]:
         value = self._cache.get(key)
         if value is None:
             return None
         return value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
 
-    async def set(self, key: str, value: str, expire: Optional[int] = None):
+    def set(self, key: str, value: str, expire: Optional[int] = None):
         self._cache[key] = value
 
-    async def delete(self, key: str):
+    def delete(self, key: str):
         self._cache.pop(key, None)
 
     @staticmethod
@@ -129,8 +129,8 @@ class RedisCache:
         self._memory = MemoryCache()
         self._connected = False
 
-    async def connect(self):
-        await self._memory.connect()
+    def connect(self):
+        self._memory.connect()
         if redis is None:
             if settings.REDIS_REQUIRED:
                 raise RuntimeError("redis package is required when REDIS_REQUIRED=true")
@@ -138,7 +138,7 @@ class RedisCache:
             return
         try:
             self._client = redis.from_url(settings.redis_url, decode_responses=True)
-            await self._client.ping()
+            self._client.ping()
             self._connected = True
             logger.info("Connected to Redis context cache")
         except Exception as exc:
@@ -148,21 +148,21 @@ class RedisCache:
                 raise
             logger.warning("Redis unavailable, using in-memory context cache: %s", exc)
 
-    async def disconnect(self):
+    def disconnect(self):
         if self._client is not None:
-            await self._client.close()
+            self._client.close()
         self._client = None
         self._connected = False
-        await self._memory.disconnect()
+        self._memory.disconnect()
 
     def _context_key(self, session_id: str) -> str:
         return f"session:{session_id}:context"
 
-    async def get_context(self, session_id: str) -> Optional[Dict[str, Any]]:
+    def get_context(self, session_id: str) -> Optional[Dict[str, Any]]:
         if not self._connected or self._client is None:
-            return await self._memory.get_context(session_id)
+            return self._memory.get_context(session_id)
 
-        raw = await self._client.get(self._context_key(session_id))
+        raw = self._client.get(self._context_key(session_id))
         if not raw:
             return None
         try:
@@ -172,7 +172,7 @@ class RedisCache:
             return None
         return MemoryCache._normalize_context(data)
 
-    async def update_context(
+    def update_context(
         self,
         session_id: str,
         history: Optional[List[Dict]] = None,
@@ -187,7 +187,7 @@ class RedisCache:
         pending_action: Any = _MISSING,
     ):
         if not self._connected or self._client is None:
-            await self._memory.update_context(
+            self._memory.update_context(
                 session_id=session_id,
                 history=history,
                 user_profile=user_profile,
@@ -202,7 +202,7 @@ class RedisCache:
             )
             return
 
-        existing = await self.get_context(session_id) or {}
+        existing = self.get_context(session_id) or {}
         if history is not None:
             existing["history"] = history
         if user_profile is not None:
@@ -224,20 +224,20 @@ class RedisCache:
         if pending_action is not _MISSING:
             existing["pending_action"] = pending_action
         existing["updated_at"] = datetime.now().isoformat()
-        await self._client.set(
+        self._client.set(
             self._context_key(session_id),
             json.dumps(existing, ensure_ascii=False),
             ex=settings.CONTEXT_CACHE_TTL_SECONDS,
         )
 
-    async def clear_context(self, session_id: str):
+    def clear_context(self, session_id: str):
         if not self._connected or self._client is None:
-            await self._memory.clear_context(session_id)
+            self._memory.clear_context(session_id)
             return
-        await self._client.delete(self._context_key(session_id))
+        self._client.delete(self._context_key(session_id))
 
-    async def add_message_to_context(self, session_id: str, user_message: str, assistant_message: str):
-        context = await self.get_context(session_id) or {}
+    def add_message_to_context(self, session_id: str, user_message: str, assistant_message: str):
+        context = self.get_context(session_id) or {}
         history = list(context.get("history", []))
         history.append(
             {
@@ -246,24 +246,24 @@ class RedisCache:
                 "timestamp": datetime.now().isoformat(),
             }
         )
-        await self.update_context(session_id=session_id, history=history[-settings.CONTEXT_MAX_HISTORY :])
+        self.update_context(session_id=session_id, history=history[-settings.CONTEXT_MAX_HISTORY :])
 
-    async def get(self, key: str) -> Optional[str]:
+    def get(self, key: str) -> Optional[str]:
         if not self._connected or self._client is None:
-            return await self._memory.get(key)
-        return await self._client.get(key)
+            return self._memory.get(key)
+        return self._client.get(key)
 
-    async def set(self, key: str, value: str, expire: Optional[int] = None):
+    def set(self, key: str, value: str, expire: Optional[int] = None):
         if not self._connected or self._client is None:
-            await self._memory.set(key, value, expire=expire)
+            self._memory.set(key, value, expire=expire)
             return
-        await self._client.set(key, value, ex=expire)
+        self._client.set(key, value, ex=expire)
 
-    async def delete(self, key: str):
+    def delete(self, key: str):
         if not self._connected or self._client is None:
-            await self._memory.delete(key)
+            self._memory.delete(key)
             return
-        await self._client.delete(key)
+        self._client.delete(key)
 
 
 redis_cache = RedisCache()

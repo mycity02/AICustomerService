@@ -23,5 +23,5 @@ class PurchaseFlowNode(BaseNode):
         super().__init__(llm=llm, runtime=runtime)
         self.workflow = PurchaseFlowWorkflow()
 
-    async def execute(self, state: ConversationState) -> ConversationState:
-        return await self.workflow.execute(state)
+    def execute(self, state: ConversationState) -> ConversationState:
+        return self.workflow.execute(state)

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for ConversationSummarizer
 
 Tests cover:
@@ -11,7 +11,7 @@ import sys
 import os
 import types
 import importlib.util
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -65,7 +65,7 @@ def _make_mock_llm(summary_text: str = "这是一段测试摘要") -> MagicMock:
     mock_llm = MagicMock()
     mock_response = MagicMock()
     mock_response.content = summary_text
-    mock_llm.ainvoke = AsyncMock(return_value=mock_response)
+    mock_llm.invoke = MagicMock(return_value=mock_response)
     return mock_llm
 
 
@@ -151,57 +151,48 @@ class TestShouldSummarize:
 # ── summarize tests ──────────────────────────────────────────────────
 
 class TestSummarize:
-    @pytest.mark.asyncio
-    async def test_splits_history_correctly(self):
+    def test_splits_history_correctly(self):
         mock_llm = _make_mock_llm("测试摘要内容")
         summarizer = ConversationSummarizer(llm=mock_llm)
         history = _make_history(15)
 
-        result = await summarizer.summarize(history)
+        result = summarizer.summarize(history)
 
         assert result["summary"] == "测试摘要内容"
         assert len(result["remaining_history"]) == 10
         assert result["remaining_history"] == history[-10:]
-
-    @pytest.mark.asyncio
-    async def test_calls_llm(self):
+    def test_calls_llm(self):
         mock_llm = _make_mock_llm("摘要结果")
         summarizer = ConversationSummarizer(llm=mock_llm)
         history = _make_history(12)
 
-        await summarizer.summarize(history, existing_summary="旧摘要")
+        summarizer.summarize(history, existing_summary="旧摘要")
 
-        mock_llm.ainvoke.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_with_existing_summary(self):
+        mock_llm.invoke.assert_called_once()
+    def test_with_existing_summary(self):
         mock_llm = _make_mock_llm("更新后的摘要")
         summarizer = ConversationSummarizer(llm=mock_llm)
         history = _make_history(12)
 
-        result = await summarizer.summarize(history, existing_summary="旧摘要")
+        result = summarizer.summarize(history, existing_summary="旧摘要")
 
         assert result["summary"] == "更新后的摘要"
-
-    @pytest.mark.asyncio
-    async def test_no_messages_to_compress(self):
+    def test_no_messages_to_compress(self):
         mock_llm = _make_mock_llm()
         summarizer = ConversationSummarizer(llm=mock_llm)
         history = _make_history(10)
 
-        result = await summarizer.summarize(history)
+        result = summarizer.summarize(history)
 
-        mock_llm.ainvoke.assert_not_called()
+        mock_llm.invoke.assert_not_called()
         assert result["summary"] == ""
         assert result["remaining_history"] == history
-
-    @pytest.mark.asyncio
-    async def test_preserves_remaining_history_content(self):
+    def test_preserves_remaining_history_content(self):
         mock_llm = _make_mock_llm("摘要")
         summarizer = ConversationSummarizer(llm=mock_llm)
         history = _make_history(15)
 
-        result = await summarizer.summarize(history)
+        result = summarizer.summarize(history)
 
         for i, msg in enumerate(result["remaining_history"]):
             original = history[5 + i]
@@ -212,8 +203,7 @@ class TestSummarize:
 # ── Token enforcement tests ──────────────────────────────────────────
 
 class TestTokenEnforcement:
-    @pytest.mark.asyncio
-    async def test_truncates_when_over_limit(self):
+    def test_truncates_when_over_limit(self):
         long_summary = "摘" * 5000  # ~2500 tokens
         mock_llm = _make_mock_llm(long_summary)
 
@@ -221,19 +211,17 @@ class TestTokenEnforcement:
         summarizer.max_tokens = 3000
         history = _make_history(15)
 
-        result = await summarizer.summarize(history)
+        result = summarizer.summarize(history)
 
         total_tokens = estimate_tokens(result["summary"]) + estimate_history_tokens(result["remaining_history"])
         assert total_tokens <= 3000
-
-    @pytest.mark.asyncio
-    async def test_no_truncation_when_within_limit(self):
+    def test_no_truncation_when_within_limit(self):
         mock_llm = _make_mock_llm("短摘要")
         summarizer = ConversationSummarizer(llm=mock_llm)
         summarizer.max_tokens = 100000
         history = _make_history(15)
 
-        result = await summarizer.summarize(history)
+        result = summarizer.summarize(history)
 
         assert len(result["remaining_history"]) == 10
 

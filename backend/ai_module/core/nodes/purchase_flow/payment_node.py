@@ -7,5 +7,5 @@ from .base_step_node import PurchaseFlowStepNode
 
 
 class PurchasePaymentNode(PurchaseFlowStepNode):
-    async def execute(self, state: ConversationState) -> ConversationState:
-        return await self.service.handle_payment(state, self._get_flow_data(state))
+    def execute(self, state: ConversationState) -> ConversationState:
+        return self.service.handle_payment(state, self._get_flow_data(state))

@@ -50,7 +50,7 @@ _NEGATIVE_FEEDBACK_RE = re.compile(
 _CORRECT_RE = re.compile(r"(不是这个意思|不是这个|不对|我说的是|改成|不是.*是)")
 _SWITCH_TOPIC_RE = re.compile(r"^(先|顺便|另外|对了|那先)")
 _RESUME_TASK_RE = re.compile(r"^(继续刚才|回到刚才|继续上一个|回到上一个|继续刚刚|回到刚刚)")
-_SELECT_ITEM_RE = re.compile(r"^第(?P<rank>[一二三四五六七八九十两\d]+)个(?:项目|订单|方案)?$")
+_SELECT_ITEM_RE = re.compile(r"^第(?P<rank>[一二三四五六七八九十两\d]+)个(?:茶品|商品|订单)?$")
 _REQUEST_FRAME_RE = re.compile(
     r"(帮我|帮忙|给我|找(?:一|几|下)?|查(?:一|下)?|看看|想要|我想|有没有|请推荐|介绍一下|怎么|如何|能不能|可不可以)",
     re.IGNORECASE,
@@ -316,7 +316,7 @@ class TurnUnderstandingNode(BaseNode):
             return True
         return False
 
-    async def _infer_with_llm(
+    def _infer_with_llm(
         self,
         state: ConversationState,
         *,
@@ -349,7 +349,7 @@ class TurnUnderstandingNode(BaseNode):
                 },
                 "valid_intents": self._get_valid_intents(),
             }
-            response = await self.llm.ainvoke(
+            response = self.llm.invoke(
                 prompt.format_messages(
                     input_payload=json.dumps(payload, ensure_ascii=False, indent=2)
                 )
@@ -428,7 +428,7 @@ class TurnUnderstandingNode(BaseNode):
         if action_type == "product":
             title = data.get("title") or data.get("product_name")
             if title:
-                return f"{message}（我指上次推荐里的{index_label}项目：{title}）"
+                return f"{message}（我指上次推荐里的{index_label}款茶：{title}）"
 
         if action_type in {"order_card", "order_card_simple"}:
             order_no = data.get("order_no")
@@ -441,7 +441,7 @@ class TurnUnderstandingNode(BaseNode):
 
         return message
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         message = (state.get("user_message") or "").strip()
         last_intent = state.get("last_intent")
         quick_actions = list(state.get("last_quick_actions") or [])
@@ -558,7 +558,7 @@ class TurnUnderstandingNode(BaseNode):
             continue_previous_task=continue_previous_task,
             need_clarification=need_clarification,
         ):
-            llm_result = await self._infer_with_llm(
+            llm_result = self._infer_with_llm(
                 state,
                 message=message,
                 dialogue_act=dialogue_act,

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for SaveContextNode with ConversationSummarizer integration.
 
 Tests cover:
@@ -11,7 +11,7 @@ import sys
 import os
 import types
 import importlib.util
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -106,26 +106,24 @@ def _make_state(**overrides):
 
 
 # ── Tests ────────────────────────────────────────────────────────────
-
-@pytest.mark.asyncio
-async def test_saves_message_and_intent_history():
+def test_saves_message_and_intent_history():
     """Basic save: adds message to context and persists intent_history."""
     node = SaveContextNode(llm=None)
     state = _make_state()
 
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        result = await node.execute(state)
+        result = node.execute(state)
 
-    mock_cache.add_message_to_context.assert_awaited_once_with(
+    mock_cache.add_message_to_context.assert_called_once_with(
         session_id="test-session",
         user_message="hello",
         assistant_message="hi there",
     )
-    mock_cache.update_context.assert_awaited_once_with(
+    mock_cache.update_context.assert_called_once_with(
         session_id="test-session",
         last_intent="问答",
         intent_history=[{"intent": "问答", "confidence": 0.9, "turn": 1}],
@@ -136,10 +134,7 @@ async def test_saves_message_and_intent_history():
         pending_action=None,
     )
     assert result is state
-
-
-@pytest.mark.asyncio
-async def test_save_context_updates_active_task_pending_state():
+def test_save_context_updates_active_task_pending_state():
     node = SaveContextNode(llm=None)
     state = _make_state(
         response="请从下面选择一个项目：",
@@ -148,38 +143,32 @@ async def test_save_context_updates_active_task_pending_state():
     )
 
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        await node.execute(state)
+        node.execute(state)
 
     assert state["active_task"]["status"] == "awaiting_user"
     assert state["pending_action"] == "select_recommended_item"
     assert state["pending_question"] == "请从下面选择一个项目："
-
-
-@pytest.mark.asyncio
-async def test_no_summarization_without_llm():
+def test_no_summarization_without_llm():
     """When llm is None, summarizer is None and summarization is skipped."""
     node = SaveContextNode(llm=None)
     assert node.summarizer is None
 
     state = _make_state()
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
-    mock_cache.get_context = AsyncMock()
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
+    mock_cache.get_context = MagicMock()
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        await node.execute(state)
+        node.execute(state)
 
     # get_context should NOT be called when summarizer is None
-    mock_cache.get_context.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_summarization_triggered_when_threshold_exceeded():
+    mock_cache.get_context.assert_not_called()
+def test_summarization_triggered_when_threshold_exceeded():
     """When history exceeds threshold, summarizer.summarize is called and cache updated."""
     mock_llm = MagicMock()
     node = SaveContextNode(llm=mock_llm)
@@ -188,36 +177,33 @@ async def test_summarization_triggered_when_threshold_exceeded():
     state = _make_state()
 
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
-    mock_cache.get_context = AsyncMock(return_value={
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
+    mock_cache.get_context = MagicMock(return_value={
         "history": long_history,
         "conversation_summary": "old summary",
     })
 
     # Mock the summarizer methods
     node.summarizer.should_summarize = MagicMock(return_value=True)
-    node.summarizer.summarize = AsyncMock(return_value={
+    node.summarizer.summarize = MagicMock(return_value={
         "summary": "new summary",
         "remaining_history": long_history[-10:],
     })
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        await node.execute(state)
+        node.execute(state)
 
-    node.summarizer.summarize.assert_awaited_once_with(long_history, "old summary")
+    node.summarizer.summarize.assert_called_once_with(long_history, "old summary")
 
     # Second update_context call should have the summary result
-    calls = mock_cache.update_context.await_args_list
+    calls = mock_cache.update_context.call_args_list
     assert len(calls) == 2
     _, kwargs = calls[1]
     assert kwargs["session_id"] == "test-session"
     assert kwargs["history"] == long_history[-10:]
     assert kwargs["conversation_summary"] == "new summary"
-
-
-@pytest.mark.asyncio
-async def test_fallback_truncation_on_summarization_failure():
+def test_fallback_truncation_on_summarization_failure():
     """When summarize() raises, fallback_truncate is used instead."""
     mock_llm = MagicMock()
     node = SaveContextNode(llm=mock_llm)
@@ -226,33 +212,30 @@ async def test_fallback_truncation_on_summarization_failure():
     state = _make_state()
 
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
-    mock_cache.get_context = AsyncMock(return_value={
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
+    mock_cache.get_context = MagicMock(return_value={
         "history": long_history,
         "conversation_summary": "",
     })
 
     node.summarizer.should_summarize = MagicMock(return_value=True)
-    node.summarizer.summarize = AsyncMock(side_effect=RuntimeError("LLM failed"))
+    node.summarizer.summarize = MagicMock(side_effect=RuntimeError("LLM failed"))
     node.summarizer.fallback_truncate = MagicMock(return_value={
         "summary": "",
         "remaining_history": long_history[-10:],
     })
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        await node.execute(state)
+        node.execute(state)
 
     node.summarizer.fallback_truncate.assert_called_once_with(long_history)
 
-    calls = mock_cache.update_context.await_args_list
+    calls = mock_cache.update_context.call_args_list
     assert len(calls) == 2
     _, kwargs = calls[1]
     assert kwargs["history"] == long_history[-10:]
-
-
-@pytest.mark.asyncio
-async def test_no_summarization_when_below_threshold():
+def test_no_summarization_when_below_threshold():
     """When history is below threshold, no summarization occurs."""
     mock_llm = MagicMock()
     node = SaveContextNode(llm=mock_llm)
@@ -261,26 +244,23 @@ async def test_no_summarization_when_below_threshold():
     state = _make_state()
 
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
-    mock_cache.get_context = AsyncMock(return_value={
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
+    mock_cache.get_context = MagicMock(return_value={
         "history": short_history,
         "conversation_summary": "",
     })
 
     node.summarizer.should_summarize = MagicMock(return_value=False)
-    node.summarizer.summarize = AsyncMock()
+    node.summarizer.summarize = MagicMock()
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        await node.execute(state)
+        node.execute(state)
 
-    node.summarizer.summarize.assert_not_awaited()
+    node.summarizer.summarize.assert_not_called()
     # update_context should only be called once (for intent_history)
-    mock_cache.update_context.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_control_response_preserves_resume_position():
+    mock_cache.update_context.assert_called_once()
+def test_control_response_preserves_resume_position():
     node = SaveContextNode(llm=None)
     state = _make_state(
         response="我先确认一下，您是想继续刚才的推荐任务，还是切换到新的问题？",
@@ -299,20 +279,17 @@ async def test_control_response_preserves_resume_position():
     )
 
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        await node.execute(state)
+        node.execute(state)
 
     assert state["pending_action"] == "select_recommended_item"
     assert state["pending_question"] == "这些里你更喜欢哪一个？"
     assert state["active_task"]["resume_mode"] == "resume_exact"
     assert state["active_task"]["resume_pending_action"] == "select_recommended_item"
-
-
-@pytest.mark.asyncio
-async def test_cancel_control_response_clears_active_task():
+def test_cancel_control_response_clears_active_task():
     node = SaveContextNode(llm=None)
     state = _make_state(
         response="好的，我先把刚才的推荐任务停在这里。",
@@ -323,19 +300,16 @@ async def test_cancel_control_response_clears_active_task():
     )
 
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        await node.execute(state)
+        node.execute(state)
 
     assert state["active_task"] is None
     assert state["pending_question"] is None
     assert state["pending_action"] is None
-
-
-@pytest.mark.asyncio
-async def test_answer_then_resume_preserves_original_resume_position():
+def test_answer_then_resume_preserves_original_resume_position():
     node = SaveContextNode(llm=None)
     state = _make_state(
         response="这句我先接住，刚才那个推荐我还记着。",
@@ -354,11 +328,11 @@ async def test_answer_then_resume_preserves_original_resume_position():
     )
 
     mock_cache = MagicMock()
-    mock_cache.add_message_to_context = AsyncMock()
-    mock_cache.update_context = AsyncMock()
+    mock_cache.add_message_to_context = MagicMock()
+    mock_cache.update_context = MagicMock()
 
     with patch.object(_node_mod, "redis_cache", mock_cache):
-        await node.execute(state)
+        node.execute(state)
 
     assert state["pending_action"] == "select_recommended_item"
     assert state["pending_question"] == "这些里你更喜欢哪一个？"

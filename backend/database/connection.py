@@ -1,65 +1,47 @@
-"""
-数据库连接管理
-"""
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
+"""Synchronous SQLAlchemy engine and session lifecycle."""
+from contextlib import contextmanager
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+
 from config import settings
-from contextlib import asynccontextmanager
 
-# 创建异步引擎
-# 根据数据库类型自动配置连接池
-if 'mysql' in settings.database_url:
-    # MySQL配置
-    engine = create_async_engine(
-        settings.database_url,
-        echo=settings.DEBUG,
-        pool_pre_ping=True,
-        pool_size=10,          # 连接池大小
-        max_overflow=20,       # 最大溢出连接数
-        pool_recycle=3600,     # 连接回收时间（1小时）
-        pool_timeout=30,       # 获取连接超时时间
-    )
-else:
-    # SQLite配置
-    engine = create_async_engine(
-        settings.database_url,
-        echo=settings.DEBUG,
-        pool_pre_ping=True,
+
+engine_options = {
+    "echo": settings.DEBUG,
+    "pool_pre_ping": True,
+}
+if "mysql" in settings.database_url:
+    engine_options.update(
+        pool_size=10,
+        max_overflow=20,
+        pool_recycle=3600,
+        pool_timeout=30,
     )
 
-# 创建异步会话工厂
-async_session = async_sessionmaker(
-    engine,
-    class_=AsyncSession,
-    expire_on_commit=False,
-)
-
-# 声明基类
+engine = create_engine(settings.database_url, **engine_options)
+db_session = sessionmaker(bind=engine, class_=Session, expire_on_commit=False)
 Base = declarative_base()
 
 
-async def get_db():
-    """获取数据库会话"""
-    async with async_session() as session:
+def get_db():
+    """Yield a synchronous session for compatibility with dependency-style callers."""
+    with db_session() as session:
         try:
             yield session
-            await session.commit()
+            session.commit()
         except Exception:
-            await session.rollback()
+            session.rollback()
             raise
-        finally:
-            await session.close()
 
 
-@asynccontextmanager
-async def get_db_context():
-    """获取数据库会话的上下文管理器"""
-    async with async_session() as session:
+@contextmanager
+def get_db_context():
+    """Provide a transactional synchronous database session."""
+    with db_session() as session:
         try:
             yield session
-            await session.commit()
+            session.commit()
         except Exception:
-            await session.rollback()
+            session.rollback()
             raise
-        finally:
-            await session.close()

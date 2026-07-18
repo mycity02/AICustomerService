@@ -17,12 +17,12 @@ class Settings(BaseSettings):
     """应用配置"""
     
     # 应用配置
-    APP_NAME: str = "AI客服系统"
+    APP_NAME: str = "云岫茶坊 AI 茶叶销售系统"
     APP_VERSION: str = "1.0.0"
     DEBUG: bool = False
     HOST: str = "0.0.0.0"
     PORT: int = 8000
-    DEFAULT_BUSINESS_ID: str = "graduation-marketplace"
+    DEFAULT_BUSINESS_ID: str = "tea-retail"
     
     # 数据库配置
     MYSQL_HOST: str = "localhost"
@@ -135,7 +135,7 @@ class Settings(BaseSettings):
     @property
     def database_url(self) -> str:
         """获取数据库连接URL"""
-        return f"mysql+aiomysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}?charset=utf8mb4"
+        return f"mysql+pymysql://{self.MYSQL_USER}:{self.MYSQL_PASSWORD}@{self.MYSQL_HOST}:{self.MYSQL_PORT}/{self.MYSQL_DATABASE}?charset=utf8mb4"
     
     @property
     def LLM_MODEL(self) -> str:

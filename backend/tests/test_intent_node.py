@@ -1,4 +1,4 @@
-﻿"""
+"""
 Unit tests for intent_node.py — verifying intent history prompt formatting,
 fallback logic, and intent history append behavior.
 """
@@ -6,7 +6,7 @@ import sys
 import os
 import types
 import importlib.util
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -213,27 +213,23 @@ class TestIntentRecognitionNodeExecute:
         return state
 
     def _make_mock_llm(self, response_text="问答"):
-        mock_llm = AsyncMock()
+        mock_llm = MagicMock()
         mock_response = MagicMock()
         mock_response.content = response_text
-        mock_llm.ainvoke.return_value = mock_response
+        mock_llm.invoke.return_value = mock_response
         return mock_llm
-
-    @pytest.mark.asyncio
-    async def test_execute_appends_to_empty_intent_history(self):
+    def test_execute_appends_to_empty_intent_history(self):
         mock_llm = self._make_mock_llm("商品推荐")
         node = IntentRecognitionNode(llm=mock_llm)
         state = self._make_state(message="推荐几个项目", intent_history=[])
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "推荐"
         assert len(result["intent_history"]) == 1
         assert result["intent_history"][0]["intent"] == "推荐"
         assert result["intent_history"][0]["turn"] == 1
-
-    @pytest.mark.asyncio
-    async def test_execute_appends_to_existing_intent_history(self):
+    def test_execute_appends_to_existing_intent_history(self):
         mock_llm = self._make_mock_llm("订单查询")
         node = IntentRecognitionNode(llm=mock_llm)
         existing_history = [
@@ -244,15 +240,13 @@ class TestIntentRecognitionNodeExecute:
             intent_history=existing_history,
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "订单查询"
         assert len(result["intent_history"]) == 2
         assert result["intent_history"][-1]["intent"] == "订单查询"
         assert result["intent_history"][-1]["turn"] == 2
-
-    @pytest.mark.asyncio
-    async def test_execute_uses_history_prompt_when_history_exists(self):
+    def test_execute_uses_history_prompt_when_history_exists(self):
         mock_llm = self._make_mock_llm("商品咨询")
         node = IntentRecognitionNode(llm=mock_llm)
         existing_history = [
@@ -263,28 +257,24 @@ class TestIntentRecognitionNodeExecute:
             intent_history=existing_history,
         )
 
-        await node.execute(state)
+        node.execute(state)
 
         # Verify LLM was called with messages that include intent history
-        call_args = mock_llm.ainvoke.call_args[0][0]
+        call_args = mock_llm.invoke.call_args[0][0]
         system_msg = call_args[0].content
         assert "意图历史" in system_msg
         assert "商品推荐" in system_msg
-
-    @pytest.mark.asyncio
-    async def test_execute_uses_basic_prompt_when_no_history(self):
+    def test_execute_uses_basic_prompt_when_no_history(self):
         mock_llm = self._make_mock_llm("问答")
         node = IntentRecognitionNode(llm=mock_llm)
         state = self._make_state(message="我想补充一点信息", intent_history=[])
 
-        await node.execute(state)
+        node.execute(state)
 
-        call_args = mock_llm.ainvoke.call_args[0][0]
+        call_args = mock_llm.invoke.call_args[0][0]
         system_msg = call_args[0].content
         assert "最近的意图历史" not in system_msg
-
-    @pytest.mark.asyncio
-    async def test_attachment_shortcut_appends_to_history(self):
+    def test_attachment_shortcut_appends_to_history(self):
         node = IntentRecognitionNode(llm=None)
         state = self._make_state(
             message="分析一下",
@@ -292,14 +282,12 @@ class TestIntentRecognitionNodeExecute:
             attachments=[{"name": "file.pdf"}],
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "文档分析"
         assert len(result["intent_history"]) == 1
         assert result["intent_history"][0]["intent"] == "文档分析"
-
-    @pytest.mark.asyncio
-    async def test_continue_previous_task_reuses_last_intent(self):
+    def test_continue_previous_task_reuses_last_intent(self):
         mock_llm = self._make_mock_llm("问答")
         node = IntentRecognitionNode(llm=mock_llm)
         state = self._make_state(
@@ -310,14 +298,12 @@ class TestIntentRecognitionNodeExecute:
             continue_previous_task=True,
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "推荐"
         assert result["confidence"] == 0.92
-        mock_llm.ainvoke.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_resume_task_uses_stacked_intent(self):
+        mock_llm.invoke.assert_not_called()
+    def test_resume_task_uses_stacked_intent(self):
         mock_llm = self._make_mock_llm("问答")
         node = IntentRecognitionNode(llm=mock_llm)
         state = self._make_state(
@@ -326,14 +312,12 @@ class TestIntentRecognitionNodeExecute:
             task_stack=[{"intent": "订单查询"}],
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "订单查询"
         assert result["confidence"] == 0.9
-        mock_llm.ainvoke.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_preselected_intent_from_policy_short_circuits(self):
+        mock_llm.invoke.assert_not_called()
+    def test_preselected_intent_from_policy_short_circuits(self):
         mock_llm = self._make_mock_llm("问答")
         node = IntentRecognitionNode(llm=mock_llm)
         state = self._make_state(
@@ -343,14 +327,12 @@ class TestIntentRecognitionNodeExecute:
             confidence=0.91,
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "推荐"
         assert result["confidence"] == 0.91
-        mock_llm.ainvoke.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_explicit_new_intent_overrides_continuation_bias(self):
+        mock_llm.invoke.assert_not_called()
+    def test_explicit_new_intent_overrides_continuation_bias(self):
         mock_llm = self._make_mock_llm("问答")
         node = IntentRecognitionNode(llm=mock_llm)
         state = self._make_state(
@@ -361,16 +343,14 @@ class TestIntentRecognitionNodeExecute:
             continue_previous_task=True,
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "推荐"
         assert result["confidence"] == 0.95
         assert result["continue_previous_task"] is False
         assert result["dialogue_act"] == "new_request"
-        mock_llm.ainvoke.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_cart_query_matches_rule_before_order_history_bias(self):
+        mock_llm.invoke.assert_not_called()
+    def test_cart_query_matches_rule_before_order_history_bias(self):
         mock_llm = self._make_mock_llm("订单查询")
         node = IntentRecognitionNode(llm=mock_llm)
         state = self._make_state(
@@ -380,20 +360,18 @@ class TestIntentRecognitionNodeExecute:
             ],
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "购物车查询"
         assert result["confidence"] == 0.95
-        mock_llm.ainvoke.assert_not_awaited()
-
-    @pytest.mark.asyncio
-    async def test_exception_fallback_appends_to_history(self):
-        mock_llm = AsyncMock()
-        mock_llm.ainvoke.side_effect = Exception("LLM error")
+        mock_llm.invoke.assert_not_called()
+    def test_exception_fallback_appends_to_history(self):
+        mock_llm = MagicMock()
+        mock_llm.invoke.side_effect = Exception("LLM error")
         node = IntentRecognitionNode(llm=mock_llm)
         state = self._make_state(message="测试异常", intent_history=[])
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert result["intent"] == "问答"
         assert result["confidence"] == 0.5

@@ -1,7 +1,7 @@
 """Document analysis workflow service helpers."""
 from __future__ import annotations
 
-import asyncio
+import time
 import logging
 
 from langchain_core.prompts import ChatPromptTemplate
@@ -25,16 +25,16 @@ def _get_file_service():
 class DocumentAnalysisService:
     """Operational logic behind the document analysis workflow."""
 
-    SYSTEM_PROMPT = """你是一个智能客服助手，服务于一个软件/毕业设计项目销售平台。
+    SYSTEM_PROMPT = """你是云岫茶坊的智能客服助手，服务于茶叶销售与智能导购平台。
 用户上传了文件或图片，请结合平台业务场景来分析和回复。
 
-平台业务：销售各类软件项目、毕业设计、课程设计源码（Java、Python、Vue、SpringBoot等技术栈）。
+平台业务：销售绿茶、红茶、乌龙茶、白茶、普洱茶和花茶，并提供选茶、冲泡、订单物流与售后服务。
 
 回复策略：
 - 如果是商品截图/商品页面：识别出商品信息，主动介绍该商品的特点，询问用户是否需要了解更多详情或购买
 - 如果是订单截图/支付截图：识别订单信息，询问用户遇到了什么问题，主动提供帮助
 - 如果是错误截图/bug截图：分析错误内容，提供可能的解决方案或建议提交工单
-- 如果是技术文档/代码截图：结合平台商品进行解读，看是否与某个项目相关
+- 如果是茶叶包装、配料或冲泡说明：识别产地、规格、保质期和冲泡参数，并结合平台茶品解读
 - 如果是其他类型文档：提取关键信息并给出专业解读
 
 要求：
@@ -47,7 +47,7 @@ class DocumentAnalysisService:
         self.llm = llm
         self.runtime = runtime
 
-    async def get_attachment_text(self, att: dict) -> tuple[str, str, dict]:
+    def get_attachment_text(self, att: dict) -> tuple[str, str, dict]:
         """获取附件文本内容，返回“正文、展示名、附加信息”。
         """
         file_service = _get_file_service()
@@ -69,19 +69,19 @@ class DocumentAnalysisService:
         if ext in IMAGE_EXTENSIONS:
             if file_id:
                 for _ in range(4):
-                    analysis = await file_service.get_image_analysis(file_id)
+                    analysis = file_service.get_image_analysis(file_id)
                     if analysis and analysis.get("extracted_text"):
-                        logger.info("从异步分析结果获取图片文字: %s", file_name)
+                        logger.info("从后台分析结果获取图片文字: %s", file_name)
                         metadata = {
                             "image_intent": analysis.get("image_intent"),
                             "image_description": analysis.get("image_description"),
                         }
                         return analysis["extracted_text"][:8000], f"{file_name} (图片文字已提取)", metadata
-                    await asyncio.sleep(0.5)
+                    time.sleep(0.5)
 
             if file_path and vision_llm_service.is_available():
                 logger.info("直接调用视觉LLM提取图片文字: %s", file_name)
-                text = await vision_llm_service.extract_text_from_image_file(file_path)
+                text = vision_llm_service.extract_text_from_image_file(file_path)
                 if text:
                     return text[:8000], f"{file_name} (图片文字已提取)", metadata
 
@@ -108,7 +108,7 @@ class DocumentAnalysisService:
         )
         return prompt.format_messages()
 
-    async def prepare_attachments(self, state):
+    def prepare_attachments(self, state):
         logger.info("文档分析节点: attachments=%s", len(state.get("attachments", [])))
 
         attachment_texts = []
@@ -116,7 +116,7 @@ class DocumentAnalysisService:
         image_context_parts = []
 
         for att in state.get("attachments") or []:
-            text, name, metadata = await self.get_attachment_text(att)
+            text, name, metadata = self.get_attachment_text(att)
             if text:
                 attachment_texts.append(text)
                 attachment_names.append(name)
@@ -130,12 +130,12 @@ class DocumentAnalysisService:
         state["_document_image_context"] = "; ".join(image_context_parts) if image_context_parts else ""
         return attachment_texts
 
-    async def generate_response(self, state):
+    def generate_response(self, state):
         attachment_texts = state.get("_document_attachment_texts")
         attachment_names = state.get("_document_attachment_names")
         image_context = state.get("_document_image_context", "")
         if attachment_texts is None:
-            await self.prepare_attachments(state)
+            self.prepare_attachments(state)
             attachment_texts = state.get("_document_attachment_texts")
             attachment_names = state.get("_document_attachment_names")
             image_context = state.get("_document_image_context", "")
@@ -147,18 +147,18 @@ class DocumentAnalysisService:
         all_content = "\n\n---\n\n".join(attachment_texts)
         user_message = state.get("user_message", "").strip()
         messages = self.build_prompt(", ".join(attachment_names), all_content, user_message, image_context)
-        response = await self.llm.ainvoke(messages)
+        response = self.llm.invoke(messages)
 
         state["response"] = response.content
         state["sources"] = [{"type": "attachment", "files": attachment_names}]
         return state
 
-    async def generate_response_stream(self, state):
+    def generate_response_stream(self, state):
         attachment_texts = state.get("_document_attachment_texts")
         attachment_names = state.get("_document_attachment_names")
         image_context = state.get("_document_image_context", "")
         if attachment_texts is None:
-            await self.prepare_attachments(state)
+            self.prepare_attachments(state)
             attachment_texts = state.get("_document_attachment_texts")
             attachment_names = state.get("_document_attachment_names")
             image_context = state.get("_document_image_context", "")
@@ -173,7 +173,7 @@ class DocumentAnalysisService:
         messages = self.build_prompt(", ".join(attachment_names), all_content, user_message, image_context)
 
         full_response = ""
-        async for chunk in self.llm.astream(messages):
+        for chunk in self.llm.stream(messages):
             if chunk.content:
                 full_response += chunk.content
                 yield chunk.content

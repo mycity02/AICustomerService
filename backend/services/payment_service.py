@@ -2,7 +2,7 @@
 支付服务模块（模拟）
 """
 from typing import Dict, Any, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select
 from database.models import Transaction, Order, OrderStatus, TransactionStatus
 import uuid
@@ -13,17 +13,17 @@ import random
 class PaymentService:
     """支付服务类"""
     
-    def __init__(self, db: AsyncSession):
+    def __init__(self, db: Session):
         self.db = db
     
-    async def create_payment(
+    def create_payment(
         self,
         order_id: str,
         payment_method: str
     ) -> Dict[str, Any]:
         """创建支付"""
         # 获取订单
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Order).where(Order.id == order_id)
         )
         order = result.scalar_one_or_none()
@@ -48,8 +48,8 @@ class PaymentService:
         )
         
         self.db.add(transaction)
-        await self.db.commit()
-        await self.db.refresh(transaction)
+        self.db.commit()
+        self.db.refresh(transaction)
         
         return {
             "transaction_id": transaction.id,
@@ -59,10 +59,10 @@ class PaymentService:
             "payment_url": f"/api/payment/mock/{transaction.id}"  # 模拟支付URL
         }
     
-    async def process_payment(self, transaction_id: str) -> Dict[str, Any]:
+    def process_payment(self, transaction_id: str) -> Dict[str, Any]:
         """处理支付（模拟）"""
         # 获取交易记录
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Transaction).where(Transaction.id == transaction_id)
         )
         transaction = result.scalar_one_or_none()
@@ -78,7 +78,7 @@ class PaymentService:
             transaction.payment_time = datetime.now()
             
             # 更新订单状态
-            result = await self.db.execute(
+            result = self.db.execute(
                 select(Order).where(Order.id == transaction.order_id)
             )
             order = result.scalar_one_or_none()
@@ -90,8 +90,8 @@ class PaymentService:
         else:
             transaction.status = TransactionStatus.FAILED
         
-        await self.db.commit()
-        await self.db.refresh(transaction)
+        self.db.commit()
+        self.db.refresh(transaction)
         
         return {
             "success": success,
@@ -101,9 +101,9 @@ class PaymentService:
             "message": "支付成功" if success else "支付失败，请重试"
         }
     
-    async def refund_payment(self, transaction_id: str) -> Dict[str, Any]:
+    def refund_payment(self, transaction_id: str) -> Dict[str, Any]:
         """退款"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Transaction).where(Transaction.id == transaction_id)
         )
         transaction = result.scalar_one_or_none()
@@ -118,7 +118,7 @@ class PaymentService:
         transaction.refund_time = datetime.now()
         
         # 更新订单状态
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Order).where(Order.id == transaction.order_id)
         )
         order = result.scalar_one_or_none()
@@ -126,7 +126,7 @@ class PaymentService:
         if order:
             order.status = OrderStatus.REFUNDED
         
-        await self.db.commit()
+        self.db.commit()
         
         return {
             "success": True,
@@ -134,9 +134,9 @@ class PaymentService:
             "message": "退款成功"
         }
     
-    async def get_transaction(self, transaction_id: str) -> Optional[Dict[str, Any]]:
+    def get_transaction(self, transaction_id: str) -> Optional[Dict[str, Any]]:
         """获取交易详情"""
-        result = await self.db.execute(
+        result = self.db.execute(
             select(Transaction).where(Transaction.id == transaction_id)
         )
         transaction = result.scalar_one_or_none()

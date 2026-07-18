@@ -1,7 +1,7 @@
 """Runtime and workflow application ports."""
 from __future__ import annotations
 
-from typing import Any, AsyncIterator, Dict, List, Optional, Protocol
+from typing import Any, Dict, Iterator, List, Optional, Protocol
 
 from .plugins import PluginManagerPort
 
@@ -43,7 +43,7 @@ class RuntimePort(Protocol):
 
 
 class WorkflowPort(Protocol):
-    async def process_message(
+    def process_message(
         self,
         *,
         user_id: str,
@@ -54,7 +54,7 @@ class WorkflowPort(Protocol):
         aftersales_flow: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]: ...
 
-    async def process_message_stream(
+    def process_message_stream(
         self,
         *,
         user_id: str,
@@ -63,7 +63,7 @@ class WorkflowPort(Protocol):
         attachments: Optional[List[Dict[str, Any]]] = None,
         purchase_flow: Optional[Dict[str, Any]] = None,
         aftersales_flow: Optional[Dict[str, Any]] = None,
-    ) -> AsyncIterator[Dict[str, Any]]: ...
+    ) -> Iterator[Dict[str, Any]]: ...
 
 
 class RuntimeFactoryPort(Protocol):

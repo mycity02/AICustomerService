@@ -5,25 +5,24 @@
 
     <div class="register-shell">
       <section class="register-story">
-        <span class="eyebrow">Create Access</span>
-        <h1>Create an account for the redesigned workspace</h1>
+        <span class="eyebrow">用户注册</span>
+        <h1>加入云岫茶坊，开启一站式购茶体验</h1>
         <p>
-          The visual redesign stays, but the form flow is simplified so account creation
-          remains stable and predictable.
+          一个账号即可使用茶品选购、AI 选茶咨询、订单物流与售后服务。
         </p>
 
         <div class="register-points">
           <article class="point-card">
-            <strong>One visual system</strong>
-            <p>Auth, products, cart, orders, support and admin now feel like one product.</p>
+            <strong>AI 智能选茶</strong>
+            <p>根据饮用场景、口感偏好和预算，快速获得茶品推荐与风味对比。</p>
           </article>
           <article class="point-card">
-            <strong>Better for demos</strong>
-            <p>The interface is closer to a polished commercial product than a typical dashboard.</p>
+            <strong>订单进度统一管理</strong>
+            <p>从下单、支付到发货签收，所有订单和物流状态都可集中跟踪。</p>
           </article>
           <article class="point-card">
-            <strong>Safer form behavior</strong>
-            <p>The register flow uses explicit validation instead of silent submission failures.</p>
+            <strong>售后服务全程保障</strong>
+            <p>包装破损、错发漏发与退换货均有清晰入口，处理进度实时可见。</p>
           </article>
         </div>
       </section>
@@ -31,32 +30,32 @@
       <el-card class="register-card">
         <template #header>
           <div class="card-head">
-            <span class="eyebrow">Join Now</span>
-            <h2>Create account</h2>
-            <p>Set up a username and password to enter the workspace.</p>
+            <span class="eyebrow">注册平台账号</span>
+            <h2>创建账号</h2>
+            <p>设置用户名和密码，即可进入云岫茶坊 AI 茶叶销售系统。</p>
           </div>
         </template>
 
         <el-form label-position="top" @submit.prevent="handleRegister">
-          <el-form-item label="Username">
-            <el-input v-model.trim="form.username" placeholder="Choose a username" autocomplete="username" />
+          <el-form-item label="用户名">
+            <el-input v-model.trim="form.username" placeholder="请输入用户名" autocomplete="username" />
           </el-form-item>
 
-          <el-form-item label="Password">
+          <el-form-item label="密码">
             <el-input
               v-model="form.password"
               type="password"
-              placeholder="Create a password"
+              placeholder="请输入密码"
               show-password
               autocomplete="new-password"
             />
           </el-form-item>
 
-          <el-form-item label="Confirm password">
+          <el-form-item label="确认密码">
             <el-input
               v-model="form.confirmPassword"
               type="password"
-              placeholder="Enter the password again"
+              placeholder="请再次输入密码"
               show-password
               autocomplete="new-password"
               @keydown.enter.prevent="handleRegister"
@@ -65,12 +64,12 @@
 
           <el-form-item class="submit-row">
             <el-button type="primary" native-type="submit" :loading="loading" style="width: 100%" @click="handleRegister">
-              Create account
+              注册账号
             </el-button>
           </el-form-item>
 
           <el-form-item class="helper-row">
-            <el-button text style="width: 100%" @click="goLogin">Back to sign in</el-button>
+            <el-button text style="width: 100%" @click="goLogin">返回登录</el-button>
           </el-form-item>
         </el-form>
       </el-card>
@@ -103,35 +102,38 @@ async function handleRegister() {
   const confirmPassword = form.confirmPassword
 
   if (!username) {
-    ElMessage.warning('Please enter a username')
+    ElMessage.warning('请输入用户名')
     return
   }
 
   if (!password) {
-    ElMessage.warning('Please enter a password')
+    ElMessage.warning('请输入密码')
     return
   }
 
   if (password !== confirmPassword) {
-    ElMessage.warning('Passwords do not match')
+    ElMessage.warning('两次输入的密码不一致')
     return
   }
 
   loading.value = true
 
   try {
-    const success = await authStore.register({
+    await authStore.register({
       username,
       password
     })
-
-    if (success) {
-      ElMessage.success('Registration successful. Please sign in.')
-      router.push('/login')
-      return
-    }
-
-    ElMessage.error('Registration failed. Check your input and try again.')
+    ElMessage.success('注册成功，请登录')
+    router.push('/login')
+  } catch (error: any) {
+    console.error('Register failed:', error)
+    const detail = error?.response?.data?.detail
+    const message = typeof detail === 'string'
+      ? detail
+      : Array.isArray(detail)
+        ? detail.map((item: any) => item?.msg).filter(Boolean).join('；')
+        : ''
+    ElMessage.error(message || '注册失败，请稍后重试')
   } finally {
     loading.value = false
   }
@@ -187,7 +189,7 @@ function goLogin() {
   border-radius: 34px;
   background:
     radial-gradient(circle at top right, rgba(255, 255, 255, 0.12), transparent 34%),
-    linear-gradient(145deg, #071422 0%, #12375f 54%, #0a84ff 100%);
+    linear-gradient(145deg, #10281D 0%, #285A40 54%, #7B683E 100%);
   color: #f8fbff;
   box-shadow: var(--shadow-lg);
 }
@@ -203,7 +205,7 @@ function goLogin() {
   margin: 24px 0 14px;
   font-size: clamp(40px, 4.6vw, 68px);
   line-height: 0.96;
-  letter-spacing: -0.06em;
+  letter-spacing: -0.035em;
 }
 
 .register-story > p {
@@ -256,7 +258,7 @@ function goLogin() {
   margin: 0;
   font-size: 32px;
   line-height: 1;
-  letter-spacing: -0.05em;
+  letter-spacing: -0.025em;
 }
 
 .card-head p {

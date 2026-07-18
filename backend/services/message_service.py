@@ -3,7 +3,7 @@
 """
 from typing import List, Optional
 from datetime import datetime
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 from sqlalchemy import select, desc, and_
 import uuid
 
@@ -14,9 +14,9 @@ from schemas import MessageResponse
 class MessageService:
     """消息服务类"""
     
-    async def save_message(
+    def save_message(
         self,
-        db: AsyncSession,
+        db: Session,
         session_id: str,
         role: str,
         content: str,
@@ -34,11 +34,11 @@ class MessageService:
         )
 
         db.add(message)
-        await db.commit()
-        await db.refresh(message)
+        db.commit()
+        db.refresh(message)
 
         # 重新查询以加载附件关系
-        result = await db.execute(
+        result = db.execute(
             select(Message)
             .options(selectinload(Message.attachments))
             .where(Message.id == message.id)
@@ -47,16 +47,16 @@ class MessageService:
 
         return MessageResponse.model_validate(message)
     
-    async def get_session_messages(
+    def get_session_messages(
         self,
-        db: AsyncSession,
+        db: Session,
         session_id: str,
         limit: int = 100
     ) -> List[MessageResponse]:
         """获取会话的所有消息"""
         from sqlalchemy.orm import selectinload
 
-        result = await db.execute(
+        result = db.execute(
             select(Message)
             .options(selectinload(Message.attachments))
             .where(Message.session_id == session_id)
@@ -67,9 +67,9 @@ class MessageService:
 
         return [MessageResponse.model_validate(m) for m in messages]
     
-    async def search_messages(
+    def search_messages(
         self,
-        db: AsyncSession,
+        db: Session,
         user_id: Optional[str] = None,
         keyword: Optional[str] = None,
         start_date: Optional[datetime] = None,
@@ -95,7 +95,7 @@ class MessageService:
         
         query = query.order_by(desc(Message.created_at)).limit(limit)
         
-        result = await db.execute(query)
+        result = db.execute(query)
         messages = result.scalars().all()
         
         return [MessageResponse.model_validate(m) for m in messages]

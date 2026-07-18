@@ -1,4 +1,3 @@
-import asyncio
 import importlib.util
 import sys
 import types
@@ -25,7 +24,7 @@ class _FakeLLM:
     def __init__(self, content):
         self._content = content
 
-    async def ainvoke(self, _messages):
+    def invoke(self, _messages):
         return _FakeResponse(self._content)
 
 
@@ -78,14 +77,12 @@ def test_generate_smart_questions_keeps_llm_to_text_candidates_only():
     module = _load_service_module(llm)
     service = module.SmartQuestionsService()
 
-    result = asyncio.run(
-        service.generate_smart_questions(
+    result = service.generate_smart_questions(
             user_id="u1",
             user_profile={},
             recent_orders=[{"status": "shipped", "product_name": "Python 项目"}],
             browsing_history=None,
         )
-    )
 
     assert len(result) == 3
     assert all(item["type"] == "button" for item in result)
@@ -99,14 +96,12 @@ def test_generate_smart_questions_falls_back_when_llm_payload_is_invalid():
     module = _load_service_module(llm)
     service = module.SmartQuestionsService()
 
-    result = asyncio.run(
-        service.generate_smart_questions(
+    result = service.generate_smart_questions(
             user_id="u2",
             user_profile={},
             recent_orders=[{"status": "shipped", "product_name": "Java 项目"}],
             browsing_history=None,
         )
-    )
 
     assert len(result) == 3
     assert result[0]["data"]["question"] == "帮我查看物流信息"

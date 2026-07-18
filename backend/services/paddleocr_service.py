@@ -24,7 +24,7 @@ class VisionLLMService:
         self.client = None
         
         if self.enabled and self.api_key:
-            self.client = httpx.AsyncClient(
+            self.client = httpx.Client(
                 base_url=self.base_url,
                 headers={
                     "Authorization": f"Bearer {self.api_key}",
@@ -40,7 +40,7 @@ class VisionLLMService:
         """检查服务是否可用"""
         return self.enabled and self.api_key and self.client is not None
     
-    async def extract_text_from_image(
+    def extract_text_from_image(
         self, 
         image_data: bytes,
         prompt: str = "请识别图片中的所有文字内容，保持原有格式。"
@@ -88,7 +88,7 @@ class VisionLLMService:
             }
             
             # 发送请求
-            response = await self.client.post("/chat/completions", json=payload)
+            response = self.client.post("/chat/completions", json=payload)
             response.raise_for_status()
             
             result = response.json()
@@ -101,7 +101,7 @@ class VisionLLMService:
             logger.error(f"PaddleOCR-VL 文字提取失败: {e}")
             return None
     
-    async def extract_text_from_image_file(
+    def extract_text_from_image_file(
         self, 
         file_path: str,
         prompt: str = "请识别图片中的所有文字内容，保持原有格式。"
@@ -119,12 +119,12 @@ class VisionLLMService:
         try:
             with open(file_path, 'rb') as f:
                 image_data = f.read()
-            return await self.extract_text_from_image(image_data, prompt)
+            return self.extract_text_from_image(image_data, prompt)
         except Exception as e:
             logger.error(f"读取图片文件失败: {e}")
             return None
     
-    async def analyze_document_image(
+    def analyze_document_image(
         self,
         image_data: bytes,
         analysis_type: str = "text"
@@ -156,7 +156,7 @@ class VisionLLMService:
         prompt = prompts.get(analysis_type, prompts["text"])
         
         try:
-            text = await self.extract_text_from_image(image_data, prompt)
+            text = self.extract_text_from_image(image_data, prompt)
             if text:
                 return {
                     "success": True,
@@ -175,7 +175,7 @@ class VisionLLMService:
             }
 
 
-    async def analyze_image_intent(
+    def analyze_image_intent(
         self,
         image_data: bytes
     ) -> Dict[str, Any]:
@@ -217,7 +217,7 @@ class VisionLLMService:
 请确保输出是有效的JSON格式。"""
         
         try:
-            result_text = await self.extract_text_from_image(image_data, prompt)
+            result_text = self.extract_text_from_image(image_data, prompt)
             if result_text:
                 # 尝试解析JSON
                 import json

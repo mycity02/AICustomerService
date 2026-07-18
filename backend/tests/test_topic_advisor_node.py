@@ -1,4 +1,4 @@
-﻿import importlib.util
+import importlib.util
 import os
 import sys
 import types
@@ -64,8 +64,8 @@ def _make_state(**overrides):
         "slot_updates": {},
         "active_task": {"intent": "推荐", "status": "awaiting_user", "slots": {}},
         "last_quick_actions": [
-            {"type": "product", "data": {"product_id": 101, "title": "图书管理系统"}},
-            {"type": "product", "data": {"product_id": 202, "title": "在线商城系统"}},
+            {"type": "product", "data": {"product_id": 101, "title": "明前西湖龙井"}},
+            {"type": "product", "data": {"product_id": 202, "title": "武夷山大红袍"}},
         ],
         "quick_actions": None,
         "response": "",
@@ -78,34 +78,31 @@ def _make_state(**overrides):
 
 
 class TestTopicAdvisorNode:
-    @pytest.mark.asyncio
-    async def test_reject_without_new_constraints_triggers_refinement_prompt(self):
+    def test_reject_without_new_constraints_triggers_refinement_prompt(self):
         node = TopicAdvisorNode()
         state = _make_state()
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
         assert "不太合适" in result["response"]
-        assert "技术栈" in result["response"]
+        assert "香型" in result["response"]
         assert result["topic_advisor_tool_results"] == []
         assert [action["label"] for action in result["quick_actions"]] == [
-            "换简单一点",
+            "换清淡一点",
             "换便宜一点",
-            "换技术栈",
-            "换项目类型",
+            "换个香型",
+            "换个茶类",
         ]
         assert result["active_task"]["slots"]["rejected_product_ids"] == [101, 202]
-
-    @pytest.mark.asyncio
-    async def test_repeated_reject_after_refinement_prompt_still_stays_in_refinement_mode(self):
+    def test_repeated_reject_after_refinement_prompt_still_stays_in_refinement_mode(self):
         node = TopicAdvisorNode()
         state = _make_state(
             last_quick_actions=[
                 {
                     "type": "button",
-                    "label": "换技术栈",
+                    "label": "换个香型",
                     "action": "send_question",
-                    "data": {"question": "换个技术栈，我不想要这类技术栈"},
+                    "data": {"question": "换个香型，我不太喜欢这一类香气"},
                 }
             ],
             active_task={
@@ -115,8 +112,8 @@ class TestTopicAdvisorNode:
             },
         )
 
-        result = await node.execute(state)
+        result = node.execute(state)
 
-        assert "技术栈" in result["response"]
+        assert "香型" in result["response"]
         assert result["topic_advisor_tool_results"] == []
 

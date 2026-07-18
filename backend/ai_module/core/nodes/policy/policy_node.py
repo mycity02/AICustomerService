@@ -42,7 +42,7 @@ class PolicyNode(BaseNode):
             return task_stack[-1].get("intent")
         return None
 
-    async def execute(self, state: ConversationState) -> ConversationState:
+    def execute(self, state: ConversationState) -> ConversationState:
         valid_intents = set(self._get_valid_intents())
         active_task = state.get("active_task") or {}
         active_intent = active_task.get("intent")

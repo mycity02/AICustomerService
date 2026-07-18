@@ -131,16 +131,16 @@ class OrderQueryService:
 
         return quick_actions
 
-    async def handle_order_detail(self, state):
+    def handle_order_detail(self, state):
         order_no = state.get("_order_query_order_no")
         user_message = state["user_message"].lower()
 
         from database.connection import get_db_context
         from services.order_service import OrderService
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             order_service = OrderService(db)
-            result = await order_service.list_orders(
+            result = order_service.list_orders(
                 user_id=state["user_id"],
                 page=1,
                 page_size=100,
@@ -168,7 +168,7 @@ class OrderQueryService:
 
             if self.is_cancel_order_request(user_message):
                 try:
-                    await order_service.cancel_order(target_order.get("id"), state["user_id"])
+                    order_service.cancel_order(target_order.get("id"), state["user_id"])
                 except ValueError as exc:
                     state["response"] = (
                         f"订单 {order_no} 当前状态为 {status_text}，暂时不能直接取消。\n\n"
@@ -181,7 +181,7 @@ class OrderQueryService:
                     f"好的，订单 {order_no} 已为您取消。\n\n"
                     f"订单金额：¥{total_amount:.2f}\n"
                     f"商品清单：\n{product_info}\n\n"
-                    "如果您还想继续挑选项目，我可以继续为您推荐。"
+                    "如果您还想继续选茶，我可以根据口味和预算为您推荐。"
                 )
                 state["quick_actions"] = [
                     {
@@ -212,7 +212,7 @@ class OrderQueryService:
             state["quick_actions"] = self.build_order_quick_actions(target_order, items, order_no)
             return state
 
-    async def handle_list_orders(self, state):
+    def handle_list_orders(self, state):
         if self.is_cart_query_request(state["user_message"]):
             state["response"] = (
                 "这句是在问购物车，不是订单。"
@@ -240,9 +240,9 @@ class OrderQueryService:
         from database.connection import get_db_context
         from services.order_service import OrderService
 
-        async with get_db_context() as db:
+        with get_db_context() as db:
             order_service = OrderService(db)
-            result = await order_service.list_orders(
+            result = order_service.list_orders(
                 user_id=state["user_id"],
                 page=1,
                 page_size=10,

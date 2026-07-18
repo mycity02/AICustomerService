@@ -47,7 +47,7 @@ QUESTION_BANK: List[Dict[str, str]] = [
     {
         "topic": "purchase_help",
         "label": "购买咨询",
-        "question": "如何购买作品？",
+        "question": "如何购买茶品？",
         "icon": "cart",
     },
 ]
@@ -118,7 +118,7 @@ class SmartQuestionsService:
             "expires_at": datetime.now() + timedelta(seconds=self._cache_ttl),
         }
 
-    async def generate_smart_questions(
+    def generate_smart_questions(
         self,
         user_id: str,
         user_profile: Dict[str, Any],
@@ -132,7 +132,7 @@ class SmartQuestionsService:
             return cached_questions
 
         try:
-            response = await self.llm.ainvoke(SMART_QUESTION_PROMPT.format_messages(context=context))
+            response = self.llm.invoke(SMART_QUESTION_PROMPT.format_messages(context=context))
             raw_questions = self._extract_questions(response.content)
             questions = self._normalize_questions(raw_questions, recent_orders)
         except Exception:
