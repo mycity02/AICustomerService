@@ -16,8 +16,14 @@ from typing import Any, Dict, List, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
 
+from ai_module.core.tea_preferences import (
+    extract_tea_preferences,
+    has_tea_preference_slots,
+)
+
 from ai_module.core.nodes.common.base import BaseNode
 from ai_module.core.memory_builder import MemoryContextBuilder
+from ai_module.core.domain_scope import looks_like_catalog_query
 from ai_module.core.constants import (
     DEFAULT_INTENT_RULES,
     DIALOGUE_ACT_CONFIRM,
@@ -29,6 +35,7 @@ from ai_module.core.constants import (
     DIALOGUE_ACT_SELECT_ITEM,
     DIALOGUE_ACT_SWITCH_TOPIC,
     DIALOGUE_ACT_UNCLEAR,
+    INTENT_PRODUCT_INQUIRY,
     INTENT_QA,
 )
 from ai_module.core.state import ConversationState
@@ -136,7 +143,7 @@ class TurnUnderstandingNode(BaseNode):
         return bool(_NEGATIVE_FEEDBACK_RE.search(normalized))
 
     def _extract_slot_updates(self, message: str) -> Dict[str, Any]:
-        updates: Dict[str, Any] = {}
+        updates: Dict[str, Any] = extract_tea_preferences(message)
         normalized = message.lower()
 
         budget_match = re.search(r"(预算\s*)?(?P<amount>\d{2,5})\s*(元|块|以内|以下|左右)", message)
@@ -174,6 +181,9 @@ class TurnUnderstandingNode(BaseNode):
         return self.runtime.get_intent_rules()
 
     def _match_explicit_intent_signal(self, message: str) -> Optional[str]:
+        if looks_like_catalog_query(message):
+            return INTENT_PRODUCT_INQUIRY
+
         normalized = message.lower()
         scores: Dict[str, tuple[int, int, int]] = {}
         for intent, keywords in self._get_intent_rules().items():
@@ -221,7 +231,7 @@ class TurnUnderstandingNode(BaseNode):
 - continue_previous_task: 布尔值，表示这句话是否明显是在继续上一轮任务
 - need_clarification: 布尔值，表示这句话是否过于模糊，系统应该先澄清
 - confidence: 0 到 1 之间的小数
-- slot_updates: 对象，可提取 budget_max、budget_target、language、difficulty、price_preference，提取不到就输出 {{}}
+- slot_updates: 对象，可提取 tea_category、aroma、taste、usage、brewing_constraint、location、budget_max、budget_target，提取不到就输出 {{}}
 
 决策原则：
 1. 如果当前句子本身已经表达完整需求，即使历史里有别的任务，也优先视为 self_contained_request=true。
@@ -299,12 +309,22 @@ class TurnUnderstandingNode(BaseNode):
         self_contained_request: bool,
         continue_previous_task: bool,
         need_clarification: bool,
+        slot_updates: Dict[str, Any],
     ) -> bool:
         if self.llm is None:
             return False
         if len(message.strip()) < 3:
             return False
         if dialogue_act not in self._LLM_ELIGIBLE_ACTS:
+            return False
+        deterministic_slots = has_tea_preference_slots(slot_updates) or any(
+            key in slot_updates for key in ("budget_max", "budget_target")
+        )
+        if (
+            dialogue_act == DIALOGUE_ACT_PROVIDE_SLOT
+            and continue_previous_task
+            and deterministic_slots
+        ):
             return False
         if domain_intent is None:
             return True
@@ -472,7 +492,8 @@ class TurnUnderstandingNode(BaseNode):
         reference_resolution = self._resolve_reference(message, quick_actions)
         explicit_intent = self._match_explicit_intent_signal(message)
         active_task_open = active_task.get("status") in {"active", "awaiting_user"}
-        explicit_request = bool(_REQUEST_FRAME_RE.search(message) or explicit_intent)
+        has_request_frame = bool(_REQUEST_FRAME_RE.search(message))
+        explicit_request = bool(has_request_frame or explicit_intent)
         awaiting_follow_up = (
             has_pending_follow_up
             or self._assistant_requires_follow_up(last_assistant_message)
@@ -483,7 +504,11 @@ class TurnUnderstandingNode(BaseNode):
             bool(slot_updates)
             and bool(last_intent)
             and awaiting_follow_up
-            and not explicit_request
+            # A bare preference such as "乌龙茶" may also match a global
+            # product intent. While a recommendation is waiting for input it
+            # remains a slot answer unless the user uses an explicit request
+            # frame such as "帮我查一下乌龙茶".
+            and not has_request_frame
         )
 
         if _CORRECT_RE.search(message):
@@ -557,6 +582,7 @@ class TurnUnderstandingNode(BaseNode):
             self_contained_request=self_contained_request,
             continue_previous_task=continue_previous_task,
             need_clarification=need_clarification,
+            slot_updates=slot_updates,
         ):
             llm_result = self._infer_with_llm(
                 state,

@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 from langchain_core.prompts import ChatPromptTemplate
 
 from ai_module.core.capability_registry import find_unsupported_capability
-from ai_module.core.domain_scope import looks_out_of_business_scope
+from ai_module.core.domain_scope import classify_guarded_request, looks_out_of_business_scope
 from ai_module.core.nodes.common.base import BaseNode
 from ai_module.core.nodes.understanding.intent_node import IntentRecognitionNode
 from ai_module.core.nodes.understanding.turn_understanding_node import TurnUnderstandingNode
@@ -85,6 +85,7 @@ class MessageEntryNode(BaseNode):
         state["unsupported_capability_label"] = None
         state["unsupported_capability_action"] = None
         state["semantic_source"] = None
+        state["guard_category"] = None
         state["self_contained_request"] = False
         state["continue_previous_task"] = False
         state["need_clarification"] = False
@@ -188,8 +189,10 @@ class MessageEntryNode(BaseNode):
         )
 
     def _build_domain_scope_state(self, state: ConversationState) -> ConversationState:
+        guard_category = classify_guarded_request(state.get("user_message", ""))
         state["skill_route"] = "domain_scope_guard"
-        state["semantic_source"] = "domain_scope_guard"
+        state["guard_category"] = guard_category
+        state["semantic_source"] = "safety_guard" if guard_category else "domain_scope_guard"
         state["intent"] = None
         state["domain_intent"] = None
         state["confidence"] = 0.98
@@ -581,7 +584,6 @@ class MessageEntryNode(BaseNode):
             state.get("self_contained_request")
             and state.get("domain_intent") == active_flow
             and active_flow
-            and state.get("slot_updates")
         ):
             state["continue_previous_task"] = True
             inflow_type = INFLOW_CORRECTION if state.get("dialogue_act") == "correct" else INFLOW_VALID_CURRENT_INPUT

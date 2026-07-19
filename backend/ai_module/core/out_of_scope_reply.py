@@ -99,7 +99,7 @@ def fallback_ack(message: str) -> str:
         return "这种事确实容易让人心里发紧。"
     if _SPORTS_RE.search(text):
         return "这种事往往得看临场状态。"
-    return "这个确实得看具体情况。"
+    return "这个问题不在我当前能可靠处理的范围内。"
 
 
 def _normalize_reply(content: str) -> str:

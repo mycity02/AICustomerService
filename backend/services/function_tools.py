@@ -46,8 +46,9 @@ def query_order(order_no: str) -> dict:
 
 
 @tool
-def search_products(keyword: str, max_price: float = None,
-                          difficulty: str = None, tech_stack: list[str] = None) -> dict:
+def search_products(keyword: str, max_price: float | None = None,
+                    difficulty: str | None = None,
+                    tech_stack: list[str] | None = None) -> dict:
     """搜索茶叶商品。支持关键词、价格、口感浓度及风味标签筛选。
 
     Args:
@@ -310,8 +311,8 @@ all_tools = [query_order, search_products, get_user_info,
 # ==================== AI 选茶顾问工具（接口名保持兼容） ====================
 
 @tool
-def search_projects(keyword: str, max_price: float = None,
-                          user_level: str = None) -> dict:
+def search_projects(keyword: str, max_price: float | None = None,
+                    user_level: str | None = None) -> dict:
     """搜索茶叶商品。工具名保持兼容，支持按关键词、预算与口感浓度搜索。
 
     Args:

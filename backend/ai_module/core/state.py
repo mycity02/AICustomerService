@@ -33,6 +33,7 @@ class ConversationState(TypedDict):
     # 中间处理态
     entry_classifier: Optional[str]
     semantic_source: Optional[str]
+    guard_category: Optional[str]
     has_active_flow: bool
     active_flow: Optional[str]
     current_step: Optional[str]

@@ -7,6 +7,11 @@ from typing import Any, Dict, List
 
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 
+from ai_module.core.tea_preferences import (
+    build_preference_search_keyword,
+    has_tea_preference_slots,
+)
+
 from services.function_tools import topic_advisor_tools
 
 from ...constants import DIALOGUE_ACT_REJECT, INTENT_RECOMMEND
@@ -362,8 +367,107 @@ class TopicAdvisorService:
             state["quick_actions"] = quick_actions
             return
 
+    @staticmethod
+    def _merged_preference_slots(state: ConversationState) -> Dict[str, Any]:
+        slots = dict((state.get("active_task") or {}).get("slots") or {})
+        slots.update(state.get("slot_updates") or {})
+        return slots
+
+    @staticmethod
+    def _preference_search_response(
+        projects: List[Dict[str, Any]],
+        keyword: str,
+        slots: Dict[str, Any],
+    ) -> str:
+        if not projects:
+            return (
+                f"我按“{keyword}”查询了当前在售茶品，暂时没有找到明确匹配的商品。"
+                "您可以换一个相近香型，或者再补充茶类和预算，我继续为您筛选。"
+            )
+
+        lines = [f"按您喜欢的“{keyword}”，目前匹配到这 {len(projects[:5])} 款在售茶品："]
+        for index, project in enumerate(projects[:5], start=1):
+            details = [f"¥{float(project.get('price') or 0):.2f}"]
+            tags = "、".join((project.get("tech_stack") or [])[:3])
+            if tags:
+                details.append(tags)
+            lines.append(
+                f"{index}. **{project.get('title', '未命名茶品')}**｜{'｜'.join(details)}"
+            )
+
+        if slots.get("brewing_constraint") == "low_boiling_point":
+            lines.extend(
+                [
+                    "",
+                    "考虑到您在高原或水温受限，具体仍以商品冲泡说明为准；"
+                    "香气不足时可适当增加投茶量或延长浸泡时间。",
+                ]
+            )
+        lines.extend(
+            [
+                "",
+                "您可以直接点击商品卡片查看详情，也可以继续补充预算或口感浓淡。",
+            ]
+        )
+        return "\n".join(lines)
+
+    def _prepare_preference_search_response(self, state: ConversationState) -> bool:
+        slot_updates = state.get("slot_updates") or {}
+        if not has_tea_preference_slots(slot_updates):
+            return False
+
+        slots = self._merged_preference_slots(state)
+        keyword = build_preference_search_keyword(slots)
+        if not keyword:
+            return False
+
+        tool = self.tool_map.get("search_projects")
+        if tool is None:
+            return False
+
+        arguments: Dict[str, Any] = {"keyword": keyword}
+        budget = slots.get("budget_max")
+        if budget is not None:
+            arguments["max_price"] = budget
+
+        try:
+            result = tool.invoke(arguments)
+        except Exception as exc:
+            logger.warning("Deterministic tea preference search failed: %s", exc)
+            state["response"] = (
+                f"我已经记下您喜欢“{keyword}”，但当前库存查询暂时不可用。"
+                "请稍后再试；在确认实际在售商品前，我不会凭空给您推荐。"
+            )
+            state["topic_advisor_tool_results"] = [
+                {
+                    "iteration": 0,
+                    "tool": "search_projects",
+                    "args": arguments,
+                    "result": {"success": False, "error": str(exc)},
+                }
+            ]
+            state["topic_advisor_projects"] = []
+            state["quick_actions"] = None
+            return True
+
+        projects = result.get("projects", []) if isinstance(result, dict) else []
+        tool_call_log = [
+            {
+                "iteration": 0,
+                "tool": "search_projects",
+                "args": arguments,
+                "result": result,
+            }
+        ]
+        state["response"] = self._preference_search_response(projects, keyword, slots)
+        state["topic_advisor_tool_results"] = tool_call_log
+        state["topic_advisor_projects"] = projects
+        self._inject_project_actions(state, tool_call_log)
+        return True
     def run_agent(self, state: ConversationState) -> ConversationState:
         self._refresh_tools(execution_context=state.get("execution_context"))
+        if self._prepare_preference_search_response(state):
+            return state
         messages = self._build_messages(state)
 
         try:
@@ -382,6 +486,10 @@ class TopicAdvisorService:
 
     def run_agent_stream(self, state: ConversationState):
         self._refresh_tools(execution_context=state.get("execution_context"))
+        if self._prepare_preference_search_response(state):
+            for char in state.get("response", ""):
+                yield char
+            return
         messages = self._build_messages(state)
 
         try:

@@ -13,6 +13,7 @@ from langchain_core.prompts import ChatPromptTemplate
 
 from config import settings
 
+from ai_module.core.domain_scope import looks_like_catalog_query
 from ai_module.core.constants import (
     CONTINUATION_DIALOGUE_ACTS,
     DEFAULT_INTENT_LABELS,
@@ -20,6 +21,7 @@ from ai_module.core.constants import (
     DIALOGUE_ACT_NEW_REQUEST,
     DIALOGUE_ACT_RESUME_TASK,
     INTENT_DOCUMENT_ANALYSIS,
+    INTENT_PRODUCT_INQUIRY,
     INTENT_QA,
     INTENT_RECOMMEND,
 )
@@ -142,6 +144,10 @@ class IntentRecognitionNode(BaseNode):
         if _SMALLTALK_RE.match(text):
             logger.info("Rule matched smalltalk intent=qa")
             return INTENT_QA, 0.99
+
+        if looks_like_catalog_query(text):
+            logger.info("Rule matched catalog-query intent=product_inquiry")
+            return INTENT_PRODUCT_INQUIRY, 0.98
 
         if re.search(r"(选茶|送礼茶|口粮茶|推荐.*茶)", text, re.IGNORECASE):
             logger.info("Rule matched tea-selection intent=recommend")

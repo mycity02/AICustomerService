@@ -33,3 +33,5 @@ def test_sse_serializes_a_plain_synchronous_generator():
 
     assert '"delta": "你好"' in body
     assert '"status": "success"' in body
+    assert response.mimetype == "text/event-stream"
+    assert "Connection" not in response.headers

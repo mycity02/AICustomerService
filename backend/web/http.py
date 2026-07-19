@@ -248,7 +248,6 @@ def _sse_response(stream: SSEStream) -> Response:
     response = Response(generate(), mimetype="text/event-stream")
     response.headers["Cache-Control"] = "no-cache, no-store"
     response.headers["X-Accel-Buffering"] = "no"
-    response.headers["Connection"] = "keep-alive"
     return response
 
 def make_response(value: Any, *, status_code: int = 200):

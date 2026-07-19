@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import copy
 import logging
+import unicodedata
 
 from services.redis_cache import redis_cache
 
@@ -36,15 +37,36 @@ class SaveContextNode(BaseNode):
 
     def _response_requires_follow_up(self, response: str) -> bool:
         normalized = (response or "").strip()
+        while normalized:
+            category = unicodedata.category(normalized[-1])
+            if normalized[-1].isspace() or category in {"So", "Sk", "Mn", "Cf"}:
+                normalized = normalized[:-1].rstrip()
+                continue
+            break
         if not normalized:
             return False
         if normalized.endswith(("?", "？")):
             return True
         return any(
             token in normalized
-            for token in ("请问", "请选择", "是否", "要不要", "需要我", "可以为您", "需要您", "下一步")
+            for token in (
+                "请问",
+                "请选择",
+                "是否",
+                "要不要",
+                "需要我",
+                "可以为您",
+                "需要您",
+                "下一步",
+                "告诉我",
+                "再告诉我",
+                "说说",
+                "您更喜欢",
+                "你更喜欢",
+                "什么香型",
+                "哪种香型",
+            )
         )
-
     def _infer_pending_action(self, state: ConversationState) -> str | None:
         if state.get("purchase_flow"):
             return "purchase_flow_step"

@@ -1,6 +1,7 @@
 """Generic response node for out-of-domain requests."""
 from __future__ import annotations
 
+from ai_module.core.domain_scope import classify_guarded_request
 from ai_module.core.nodes.common.base import BaseNode
 from ai_module.core.out_of_scope_reply import compose_out_of_scope_reply
 from ai_module.core.state import ConversationState
@@ -14,9 +15,39 @@ _SUPPORTED_SCOPE_LABELS = {
     "cart_query": "购物车",
 }
 
+_GUARDED_REPLY_TEMPLATES = {
+    "prompt_security": (
+        "为了保护系统和账号安全，我不能提供系统提示词、密钥、令牌、内部配置，"
+        "也不能协助绕过安全规则。"
+    ),
+    "privacy": (
+        "为了保护用户隐私，我只能查询和处理当前登录账户本人有权限访问的数据，"
+        "不能提供其他用户的订单、地址、联系方式或账户信息。"
+    ),
+    "harmful": (
+        "我不能提供可能造成伤害、违法或绕过安全措施的具体方法。"
+    ),
+    "medical": (
+        "我不能替代医生进行诊断、治疗或用药建议，也不会把茶宣传为药物替代品。"
+        "涉及孕期、慢性病或正在服药的情况，请先咨询医生。"
+    ),
+    "crisis": (
+        "听起来您现在可能非常难受。若您有立即伤害自己的风险，请立刻联系当地急救或警方，"
+        "并尽快联系身边可信任的人陪着您；本客服无法提供危机干预。"
+    ),
+}
+
 
 class DomainScopeGuardNode(BaseNode):
     """Reject out-of-domain requests and redirect back to supported business scope."""
+
+    def _guarded_reply(self, category: str, business_name: str) -> str:
+        reply = _GUARDED_REPLY_TEMPLATES[category]
+        if category == "crisis":
+            return reply
+        return (
+            f"{reply}如果您需要，我仍可以继续协助处理{business_name}的茶品、订单、物流或售后问题。"
+        )
 
     def _business_name(self, state: ConversationState) -> str:
         execution_context = state.get("execution_context") or {}
@@ -80,6 +111,16 @@ class DomainScopeGuardNode(BaseNode):
 
     def execute(self, state: ConversationState) -> ConversationState:
         business_name = self._business_name(state)
+        guard_category = state.get("guard_category") or classify_guarded_request(
+            state.get("user_message", "")
+        )
+        if guard_category:
+            state["guard_category"] = guard_category
+            state["semantic_source"] = "safety_guard"
+            state["response"] = self._guarded_reply(guard_category, business_name)
+            state["quick_actions"] = None
+            return state
+
         state["response"] = compose_out_of_scope_reply(
             state.get("user_message", ""),
             self._redirect_text(state, business_name),
